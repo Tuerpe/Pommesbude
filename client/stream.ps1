@@ -162,7 +162,21 @@ if ($Stop) {
 # GET https://<domain>/api/config -> clientVersion (neueste), minClientVersion (Pflicht), clientUrl (Zip).
 # Zu alt fuer den Server: Update ist Pflicht. Sonst: Update anbieten, "Spaeter" = 24 h Ruhe.
 function Get-InstalledVersion { try { [version]($cfg.version) } catch { [version]'0.0.0' } }
+# OBS sauber beenden (WM_CLOSE wie ueber das Tray-Menue, kein Kill): Stream wird gestoppt, Konfiguration gespeichert,
+# Sentinel entfernt -> kein "abgesicherter Modus"-Dialog beim naechsten Start.
+function Stop-ObsGracefully {
+    if (-not (Get-Process obs64 -ErrorAction SilentlyContinue)) { return $true }
+    Log 'OBS laeuft noch, beende es sauber fuer das Update'
+    foreach ($id in 'main', 'cam') { if (Obs-Connected $id) { try { Obs 'StopStream' @{} $id | Out-Null } catch {}; Ws-Close $id } }
+    & "$env:SystemRootSystem32	askkill.exe" /IM obs64.exe 2>&1 | Out-Null
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    while ((Get-Process obs64 -ErrorAction SilentlyContinue) -and $sw.Elapsed.TotalSeconds -lt 30) { Start-Sleep -Milliseconds 500 }
+    if (Get-Process obs64 -ErrorAction SilentlyContinue) { return $false }
+    Start-Sleep 2
+    return $true
+}
 function Invoke-ClientUpdate([string]$zipUrl, [string]$newVersion) {
+    if (-not (Stop-ObsGracefully)) { throw 'OBS liess sich nicht sauber beenden. Bitte OBS ueber das Tray-Symbol schliessen und den Launcher erneut starten.' }
     $tmp = Join-Path $env:TEMP 'pommesbude-update'
     if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
     New-Item -ItemType Directory -Force $tmp | Out-Null
@@ -187,17 +201,15 @@ try {
     $minimum = [version]$remote.minClientVersion
     $zipUrl = if ($remote.clientUrl) { if ($remote.clientUrl -like 'http*') { $remote.clientUrl } else { "https://$($cfg.domain)$($remote.clientUrl)" } } else { $null }
     Log "Version installiert $installed, Server $latest (mindestens $minimum)"
-    $obsRunning = [bool](Get-Process obs64 -ErrorAction SilentlyContinue)
     if ($installed -lt $minimum) {
         if (-not $zipUrl) { Fail "Diese Version ($installed) ist zu alt fuer den Server (mindestens $minimum), aber der Server bietet kein Update-Paket an. Bitte neues Paket vom Betreiber holen und setup-obs.ps1 ausfuehren." }
-        if ($obsRunning) { Fail "Update auf $latest ist erforderlich (installiert: $installed). Bitte erst 'Stream Stop' ausfuehren, dann 'Stream starten' erneut." }
         $r = [System.Windows.Forms.MessageBox]::Show("Update erforderlich: Version $installed ist zu alt fuer den Server (mindestens $minimum).`n`nJetzt auf $latest aktualisieren? Ohne Update kann nicht gestreamt werden.", 'Stream', 'OKCancel', 'Warning')
         if ($r -ne 'OK') { Log 'Pflicht-Update abgelehnt, Ende'; exit 1 }
         try { Invoke-ClientUpdate $zipUrl "$latest" } catch { Fail "Update fehlgeschlagen: $_" }
-    } elseif ($installed -lt $latest -and $zipUrl -and -not $obsRunning) {
+    } elseif ($installed -lt $latest -and $zipUrl) {
         $snooze = 0; try { $snooze = [long]$cfg.snoozeUntil } catch {}
         if ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() -ge $snooze) {
-            $r = [System.Windows.Forms.MessageBox]::Show("Update verfuegbar: $installed -> $latest.`n`nJetzt installieren? (Dauert ein paar Sekunden, OBS darf dabei nicht laufen.)", 'Stream', 'YesNo', 'Question')
+            $r = [System.Windows.Forms.MessageBox]::Show("Update verfuegbar: $installed -> $latest.`n`nJetzt installieren? Dauert ein paar Sekunden; ein laufender Stream wird dafuer beendet.", 'Stream', 'YesNo', 'Question')
             if ($r -eq 'Yes') {
                 try { Invoke-ClientUpdate $zipUrl "$latest" } catch { [System.Windows.Forms.MessageBox]::Show("Update fehlgeschlagen, es geht mit der alten Version weiter:`n$_", 'Stream', 'OK', 'Warning') | Out-Null }
             } else {

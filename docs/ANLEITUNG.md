@@ -53,7 +53,7 @@ Hotkeys im laufenden Stream (feste Szenen aus OBS): `Strg+Alt+1/2` = Monitor 1/2
 
 ## Updates
 
-Beim Start prüft "Stream starten" beim Server, ob es eine neue Version gibt, und bietet sie an. Ist die installierte Version zu alt für den Server, ist das Update Pflicht. Das Update läuft automatisch (OBS darf dabei nicht laufen), Name, Stream-Key und Einstellungen bleiben erhalten.
+Beim Start prüft "Stream starten" beim Server, ob es eine neue Version gibt, und bietet sie an. Ist die installierte Version zu alt für den Server, ist das Update Pflicht. Das Update läuft automatisch; läuft OBS gerade, wird es dafür sauber beendet. Name, Stream-Key und Einstellungen bleiben erhalten.
 Manuell: neues Paket entpacken, `relay.json` daneben legen, `Setup.cmd` erneut ausführen.
 
 ## Wenn etwas nicht geht

@@ -53,7 +53,7 @@ Hotkeys while streaming (fixed OBS scenes): `Ctrl+Alt+1/2` = monitor 1/2 (pick t
 
 ## Updates
 
-On start, "Stream starten" asks the server whether a new version exists and offers it. If the installed version is too old for the server, the update is mandatory. The update runs automatically (OBS must not be running); name, stream key and settings are kept.
+On start, "Stream starten" asks the server whether a new version exists and offers it. If the installed version is too old for the server, the update is mandatory. The update runs automatically; if OBS is running it is closed cleanly first. Name, stream key and settings are kept.
 Manually: unpack the new package, put `relay.json` next to it, run `Setup.cmd` again.
 
 ## Troubleshooting
