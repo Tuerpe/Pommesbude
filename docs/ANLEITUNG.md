@@ -66,9 +66,10 @@ Manuell: neues Paket entpacken, `relay.json` daneben legen, `Setup.cmd` erneut a
 | "Verbindung fehlgeschlagen" beim Start | Stream-Key falsch oder Server down. Auf der Website "Mein Stream-Key" prüfen, `Setup.cmd` nochmal ausführen. |
 | Ich sehe "Warte auf Freigabe" | Jemand muss dich unter **Nutzer** freigeben. |
 | Stream-Key ist jemandem bekannt geworden | Website → Mein Stream-Key → **Neuen Key erzeugen**, dann `Setup.cmd` neu ausführen. |
-| Beim Doppelklick auf "Stream starten" passiert nichts oder ein Fehlerfenster kommt | Einmal **Stream Stop** doppelklicken, 10 s warten, dann "Stream starten" erneut. Details stehen in `%LOCALAPPDATA%stream-relaylauncher.log`. |
+| Beim Doppelklick auf "Stream starten" passiert nichts oder ein Fehlerfenster kommt | Einmal **Stream Stop** doppelklicken, 10 s warten, dann "Stream starten" erneut. Details stehen in `%LOCALAPPDATA%\stream-relay\launcher.log`. |
 | Auswahlfenster ist leer oder Fehler "Keine Verbindung zu OBS" | OBS einmal komplett beenden (Stream Stop), 10 s warten, nochmal. Bleibt es: `Setup.cmd` erneut ausführen. |
 | Kamera bleibt schwarz | Kamera wird gerade von Discord o. ä. benutzt, dort Video aus. Oder im LIVE-Fenster Kamera aus und wieder an. |
+| "Starten der Ausgabe fehlgeschlagen" mit Hinweis auf NVENC/AMD | Der Encoder passt nicht zur Grafikkarte. `Setup.cmd` erneut ausführen, es wählt den Encoder automatisch (NVIDIA, AMD, Intel oder CPU). Erzwingen: `client\setup-obs.ps1 -Encoder x264`. |
 | Hotkeys wirken nicht | Manche Spiele schlucken Strg+Alt+Zahl. In OBS unter Einstellungen → Hotkeys andere Tasten setzen. |
 
 Voraussetzung zum Streamen: mindestens **10 Mbit/s Upload frei** (speedtest.net), mit Kamera ca. 13. Sonst Bitrate senken, siehe Tabelle.

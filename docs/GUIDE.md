@@ -69,6 +69,7 @@ Manually: unpack the new package, put `relay.json` next to it, run `Setup.cmd` a
 | Nothing happens on double-click or an error window appears | Double-click **Stream Stop** once, wait 10 s, then "Stream starten" again. Details are in `%LOCALAPPDATA%\stream-relay\launcher.log`. |
 | Chooser window is empty or "No connection to OBS" | Quit OBS completely (Stream Stop), wait 10 s, try again. If it persists: run `Setup.cmd` again. |
 | Camera stays black | The camera is in use by Discord or similar, turn video off there. Or toggle the camera off and on in the LIVE window. |
+| "Failed to start output" mentioning NVENC/AMD | The encoder does not match your GPU. Run `Setup.cmd` again, it picks the encoder automatically (NVIDIA, AMD, Intel or CPU). Force one: `client\setup-obs.ps1 -Encoder x264`. |
 | Hotkeys do not work | Some games swallow Ctrl+Alt+number. Set other keys in OBS under Settings → Hotkeys. |
 
 Requirement for streaming: at least **10 Mbit/s upload free** (speedtest.net), about 13 with camera. Otherwise lower the bitrate, see table.

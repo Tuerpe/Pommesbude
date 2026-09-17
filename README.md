@@ -76,7 +76,7 @@ Server: unpack the new `pommesbude-server.zip` over the old folder (`server/.env
 ## Requirements
 
 - Server: Debian 12/13 or Ubuntu 22.04+, a domain pointing at it, ports 80/443 TCP and 8189 UDP.
-- Streamers: Windows 10/11, OBS Studio 30+, an NVIDIA GPU (NVENC) or adjust the encoder in `client/profile/basic.ini`, about 10 Mbit/s upload.
+- Streamers: Windows 10/11, OBS Studio 30+ (installed on demand), any GPU (the setup picks NVENC, AMF, QSV or x264 automatically), about 10 Mbit/s upload.
 - Viewers: any current browser; roughly 8 Mbit/s download per stream shown.
 
 ## License
@@ -138,7 +138,7 @@ in `web/server.js` erhöhen, wenn alte Clients nicht mehr funktionieren dürfen)
 ## Voraussetzungen
 
 - Server: Debian 12/13 oder Ubuntu 22.04+, eine Domain, die darauf zeigt, Ports 80/443 TCP und 8189 UDP.
-- Streamer: Windows 10/11, OBS Studio 30+, NVIDIA-GPU (NVENC) oder Encoder in `client/profile/basic.ini` anpassen, etwa 10 Mbit/s Upload.
+- Streamer: Windows 10/11, OBS Studio 30+ (wird bei Bedarf installiert), beliebige GPU (das Setup wählt NVENC, AMF, QSV oder x264 automatisch), etwa 10 Mbit/s Upload.
 - Zuschauer: aktueller Browser; etwa 8 Mbit/s Download je angezeigtem Stream.
 
 ## Lizenz

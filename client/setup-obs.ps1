@@ -19,6 +19,8 @@ param(
     [string]$StreamKey,
     [string]$Domain,
     [string]$ObsDir = 'C:\Program Files\obs-studio',
+    [ValidateSet('', 'nvenc', 'amf', 'qsv', 'x264')]
+    [string]$Encoder,
     [switch]$Update
 )
 
@@ -88,6 +90,7 @@ if ($Update) {
     if (-not $existingCfg) { Fail 'Keine bestehende Installation gefunden (launcher.json fehlt). Bitte normales Setup ausfuehren.' }
     $Name = [string]$existingCfg.name
     $Domain = [string]$existingCfg.domain
+    if (-not $Encoder -and $existingCfg.encoder) { $Encoder = [string]$existingCfg.encoder }
     $svcOld = Join-Path $profilesDir "$profileName\service.json"
     if (Test-Path $svcOld) {
         $tok = (Get-Content $svcOld -Raw | ConvertFrom-Json).settings.bearer_token
@@ -117,18 +120,39 @@ if (-not $StreamKey) {
 }
 if ($StreamKey -notmatch '^[0-9a-f]{48}$') { Fail 'Stream-Key sieht falsch aus (48 Hex-Zeichen erwartet).' }
 
-# --- 2. Profile (Bildschirm/Spiel + Kamera) ------------------------------------
-function Install-Profile([string]$dirName, [string]$srcDir) {
+# --- 2. Encoder nach Grafikkarte waehlen ---------------------------------------
+# Die Vorlagen sind fuer NVIDIA (NVENC). Andere GPUs bekommen den passenden Hardware-Encoder, sonst x264 (CPU).
+if (-not $Encoder) {
+    $gpus = ((Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name) -join ' ')
+    $Encoder = if ($gpus -match 'NVIDIA') { 'nvenc' } elseif ($gpus -match 'AMD|Radeon') { 'amf' } elseif ($gpus -match 'Intel') { 'qsv' } else { 'x264' }
+    Write-Host "Grafikkarte: $gpus -> Encoder $Encoder" -ForegroundColor Green
+}
+$encoderId = @{ nvenc = 'obs_nvenc_h264_tex'; amf = 'h264_texture_amf'; qsv = 'obs_qsv11_v2'; x264 = 'obs_x264' }[$Encoder]
+function Get-EncoderSettings([int]$bitrate) {
+    switch ($Encoder) {
+        'amf'  { @{ rate_control = 'CBR'; bitrate = $bitrate; keyint_sec = 2; preset = 'quality'; profile = 'high'; bf = 0 } }
+        'qsv'  { @{ rate_control = 'CBR'; bitrate = $bitrate; keyint_sec = 2; target_usage = 'TU4'; profile = 'high' } }
+        'x264' { @{ rate_control = 'CBR'; bitrate = $bitrate; keyint_sec = 2; preset = 'veryfast'; profile = 'high'; tune = 'zerolatency' } }
+        default { $null }   # nvenc: Vorlage aus dem Paket
+    }
+}
+
+# --- 3. Profile (Bildschirm/Spiel + Kamera) ------------------------------------
+function Install-Profile([string]$dirName, [string]$srcDir, [int]$bitrate) {
     $dst = Join-Path $profilesDir $dirName
     New-Item -ItemType Directory -Force $dst | Out-Null
-    Copy-Item (Join-Path $here "$srcDir\basic.ini") (Join-Path $dst 'basic.ini') -Force
-    Copy-Item (Join-Path $here "$srcDir\streamEncoder.json") (Join-Path $dst 'streamEncoder.json') -Force
+    $ini = Get-Content (Join-Path $here "$srcDir\basic.ini") -Raw
+    $ini = $ini -replace '(?m)^Encoder=.*$', "Encoder=$encoderId"
+    [IO.File]::WriteAllText((Join-Path $dst 'basic.ini'), $ini, (New-Object Text.UTF8Encoding $false))
+    $enc = Get-EncoderSettings $bitrate
+    if ($enc) { [IO.File]::WriteAllText((Join-Path $dst 'streamEncoder.json'), ($enc | ConvertTo-Json), (New-Object Text.UTF8Encoding $false)) }
+    else { Copy-Item (Join-Path $here "$srcDir\streamEncoder.json") (Join-Path $dst 'streamEncoder.json') -Force }
     $svc = (Get-Content (Join-Path $here "$srcDir\service.json.tmpl") -Raw).Replace('{{DOMAIN}}', $Domain).Replace('{{NAME}}', $Name).Replace('{{STREAMKEY}}', $StreamKey)
     [IO.File]::WriteAllText((Join-Path $dst 'service.json'), $svc, (New-Object Text.UTF8Encoding $false))
 }
-Install-Profile $profileName 'profile'
-Install-Profile 'StreamRelayCam' 'profile-cam'
-Write-Host "Profile '$profileName' und 'StreamRelayCam' angelegt." -ForegroundColor Green
+Install-Profile $profileName 'profile' 8000
+Install-Profile 'StreamRelayCam' 'profile-cam' 2500
+Write-Host "Profile '$profileName' und 'StreamRelayCam' angelegt (Encoder $encoderId)." -ForegroundColor Green
 
 # --- 3. Szenensammlungen ---------------------------------------------------------
 Copy-Item (Join-Path $here 'scenes\StreamRelay.json') (Join-Path $scenesDir "$collectionName.json") -Force
@@ -183,7 +207,7 @@ Copy-Item (Join-Path $here 'stream.ps1') (Join-Path $launcherDir 'stream.ps1') -
 $keep = @{ lastValue = ''; lastGameHook = $false; lastCamera = ''; lastCamOn = $false }
 if ($existingCfg) { foreach ($k in @($keep.Keys)) { if ($existingCfg.PSObject.Properties.Name -contains $k) { $keep[$k] = $existingCfg.$k } } }
 $launcherCfg = [ordered]@{
-    version = $pkgVersion; obsExe = $obsExe; wsPort = $wsPort; wsPortCam = ($wsPort + 1); wsPassword = $wsPassword
+    version = $pkgVersion; obsExe = $obsExe; encoder = $Encoder; wsPort = $wsPort; wsPortCam = ($wsPort + 1); wsPassword = $wsPassword
     domain = $Domain; name = $Name
     lastValue = $keep.lastValue; lastGameHook = $keep.lastGameHook; lastCamera = $keep.lastCamera; lastCamOn = $keep.lastCamOn
 }
@@ -217,7 +241,7 @@ Write-Host ''
 Write-Host '==================================================================' -ForegroundColor Cyan
 Write-Host " Fertig, $Name (Client-Version $pkgVersion)." -ForegroundColor Cyan
 Write-Host " Zuschauen (alle Streams): https://$Domain/"
-Write-Host ' Streamen: Doppelklick auf "Stream starten", Bildschirm oder Fenster waehlen, fertig.'
+Write-Host ' Streamen: Doppelklick auf die DESKTOP-Verknuepfung "Stream starten" (nicht auf stream.ps1 im Paket), Bildschirm oder Fenster waehlen, fertig.'
 Write-Host ' Kamera:   im Auswahlfenster "Kamera zusaetzlich senden" oder "Nur Kamera", im LIVE-Fenster jederzeit an/aus.'
 Write-Host ' Hotkeys im Stream:    Strg+Alt+1/2 = Monitor 1/2, Strg+Alt+3 = Auswahl-Szene'
 Write-Host '==================================================================' -ForegroundColor Cyan

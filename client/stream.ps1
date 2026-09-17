@@ -18,8 +18,11 @@ Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
+# Wird das Skript aus dem Paketordner statt ueber die Desktop-Verknuepfung gestartet, die installierte Konfiguration nutzen.
+$installDir = Join-Path $env:LOCALAPPDATA 'stream-relay'
+if (-not (Test-Path (Join-Path $here 'launcher.json')) -and (Test-Path (Join-Path $installDir 'launcher.json'))) { $here = $installDir }
 $cfgPath = Join-Path $here 'launcher.json'
-if (-not (Test-Path $cfgPath)) { [System.Windows.Forms.MessageBox]::Show("launcher.json fehlt in $here. Bitte setup-obs.ps1 erneut ausfuehren.", 'Stream', 'OK', 'Error') | Out-Null; exit 1 }
+if (-not (Test-Path $cfgPath)) { [System.Windows.Forms.MessageBox]::Show("Der Client ist noch nicht eingerichtet (launcher.json fehlt). Bitte zuerst Setup.cmd ausfuehren, danach die Desktop-Verknuepfung 'Stream starten' benutzen.", 'Stream', 'OK', 'Error') | Out-Null; exit 1 }
 $cfg = Get-Content $cfgPath -Raw | ConvertFrom-Json
 foreach ($k in 'lastValue', 'lastGameHook', 'lastCamera', 'lastCamOn', 'wsPortCam') {
     if (-not ($cfg.PSObject.Properties.Name -contains $k)) { $cfg | Add-Member -NotePropertyName $k -NotePropertyValue $(if ($k -eq 'wsPortCam') { [int]$cfg.wsPort + 1 } elseif ($k -like 'last*On' -or $k -eq 'lastGameHook') { $false } else { '' }) }
