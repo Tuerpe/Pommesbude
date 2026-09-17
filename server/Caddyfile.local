@@ -1,0 +1,10 @@
+# Nur fuer den lokalen Test (compose.local.yml): gleiche Routen wie Caddyfile, aber ohne TLS auf Port 8080.
+# Fuer Zugriff von Windows auf WSL-Docker die WSL-IP ergaenzen, z. B.: http://localhost:8080, http://172.x.x.x:8080
+http://localhost:8080 {
+    encode gzip
+    @media path_regexp ^/[a-z0-9_-]+/(whip|whep)(/.*)?$
+    reverse_proxy @media mediamtx:8889
+    @hook path /api/mediamtx/*
+    respond @hook 404
+    reverse_proxy web:3000
+}

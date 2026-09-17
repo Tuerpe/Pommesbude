@@ -1,0 +1,11 @@
+# Instanzdaten, nie ins Repo
+server/.env
+relay.json
+PRIVATE*.md
+# Laufzeit / Build
+*.db
+web/node_modules/
+dist/
+*.zip
+.*-key.tmp
+.setup-out.txt

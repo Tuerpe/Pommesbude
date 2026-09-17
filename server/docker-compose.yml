@@ -1,0 +1,66 @@
+# Projektname fest, damit Volumes/Netz unabhaengig vom Ordnernamen heissen (stream-relay_web_data usw.).
+name: stream-relay
+
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:1.21.0
+    container_name: mediamtx
+    restart: unless-stopped
+    depends_on:
+      - web
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    ports:
+      # WebRTC-Medien (ICE/DTLS/SRTP) gehen direkt an MediaMTX, nicht ueber Caddy.
+      - "8189:8189/udp"
+    # 8889 (WHIP/WHEP) und 9997 (Control-API) bleiben intern.
+    networks:
+      - relay
+
+  web:
+    build:
+      context: ..            # Projektverzeichnis (enthaelt web/, client/, docs/, VERSION); dieses File liegt in server/
+      dockerfile: web/Dockerfile
+    image: stream-relay-web:local
+    container_name: web
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MEDIAMTX_API: http://mediamtx:9997
+      SITE_NAME: ${SITE_NAME:-Stream Relay}
+      DB_PATH: /data/app.db
+    volumes:
+      - web_data:/data
+    networks:
+      - relay
+
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    restart: unless-stopped
+    depends_on:
+      - mediamtx
+      - web
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - relay
+
+networks:
+  relay:
+    driver: bridge
+    ipam:
+      config:
+        # Festes Subnetz: mediamtx.yml (webrtcTrustedProxies) und HOOK_SUBNET in .env verlassen sich darauf.
+        - subnet: 172.30.0.0/24
+
+volumes:
+  caddy_data:
+  caddy_config:
+  web_data:

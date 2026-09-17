@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{SITE_NAME}}</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍟</text></svg>">
+</head>
+<body>
+  <!-- Login / Registrierung -->
+  <section id="auth" class="auth hidden">
+    <div class="card">
+      <h1>🍟 {{SITE_NAME}}</h1>
+      <div class="tabs">
+        <button data-tab="login" class="active">Anmelden</button>
+        <button data-tab="register">Registrieren</button>
+      </div>
+      <form id="form-login">
+        <label>Name <input name="name" autocomplete="username" required></label>
+        <label>Passwort <input name="password" type="password" autocomplete="current-password" required></label>
+        <button type="submit">Anmelden</button>
+      </form>
+      <form id="form-register" class="hidden">
+        <label>Name <input name="name" autocomplete="username" pattern="[a-z0-9_\-]{2,20}" title="2-20 Zeichen: a-z, 0-9, _ -" required></label>
+        <label>Passwort <input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
+        <p class="hint">Der Name wird dein Stream-Pfad. Nach der Registrierung muss dich jemand freischalten.</p>
+        <button type="submit">Registrieren</button>
+      </form>
+      <p id="auth-error" class="error"></p>
+    </div>
+  </section>
+
+  <!-- Wartet auf Freigabe -->
+  <section id="pending" class="auth hidden">
+    <div class="card">
+      <h1>⏳ Warte auf Freigabe</h1>
+      <p>Du bist registriert als <b id="pending-name"></b>. Sag jemandem aus der Gruppe Bescheid, der dich freischaltet. Die Seite prüft alle 10 Sekunden.</p>
+      <button id="pending-logout" class="secondary">Abmelden</button>
+    </div>
+  </section>
+
+  <!-- Hauptansicht -->
+  <section id="main" class="hidden">
+    <header>
+      <div class="brand">🍟 {{SITE_NAME}}</div>
+      <div class="status" id="live-count"></div>
+      <nav>
+        <button id="btn-key" class="secondary">Mein Stream-Key</button>
+        <button id="btn-users" class="secondary">Nutzer <span id="pending-badge" class="badge hidden"></span></button>
+        <button id="btn-pw" class="secondary">Passwort</button>
+        <span class="me" id="me-name"></span>
+        <button id="btn-logout" class="secondary">Abmelden</button>
+      </nav>
+    </header>
+
+    <main>
+      <div class="viewbar">
+        <span class="viewlabel">Ansicht:</span>
+        <button data-mode="standard" class="secondary active" title="Streams gross, Kameras klein">Standard</button>
+        <button data-mode="allBig" class="secondary" title="Alles im grossen Raster">Alle gross</button>
+        <button data-mode="allSmall" class="secondary" title="Alles in der Leiste">Alle klein</button>
+        <button data-mode="custom" class="secondary" title="Eigene Zusammenstellung per Ziehen oder Pfeil-Buttons">Eigene</button>
+        <span class="viewsep"></span>
+        <button id="btn-cams" class="secondary" title="Kameras komplett ausblenden (spart Download)">🎥 Kameras an</button>
+        <span class="hint viewhint">Kacheln lassen sich zwischen Raster und Leiste ziehen, ⬆/⬇ geht auch. ⤢ = nur diese gross.</span>
+      </div>
+      <div id="grid-area" class="grid-area">
+        <div id="grid" class="grid"></div>
+        <p id="grid-empty" class="empty small hidden">Nichts im grossen Raster. Eine Kachel aus der Leiste hochziehen oder Ansicht wechseln.</p>
+        <p id="empty" class="empty hidden">Gerade streamt niemand.</p>
+      </div>
+      <div id="splitter" class="splitter hidden" title="Ziehen: Groesse der Leiste. Doppelklick: zuruecksetzen"><span></span></div>
+      <div id="strip-wrap" class="strip-wrap hidden"><div id="strip" class="strip"><span id="strip-empty" class="strip-empty">Leiste ist leer. Kacheln hierher ziehen oder ⬇ auf einer Kachel drücken.</span></div></div>
+      <div id="offline" class="offline"></div>
+    </main>
+  </section>
+
+  <!-- Dialog: Stream-Key -->
+  <dialog id="dlg-key">
+    <h2>Mein Stream-Key</h2>
+    <p>In OBS (Einstellungen → Stream, Dienst „WHIP“) eintragen. Oder <code>setup-obs.ps1</code> ausführen und den Key einfügen.</p>
+    <label>Server <span class="row"><input id="key-url" readonly><button data-copy="key-url" class="secondary">Kopieren</button></span></label>
+    <label>Bearer Token <span class="row"><input id="key-token" readonly><button data-copy="key-token" class="secondary">Kopieren</button></span></label>
+    <p class="hint">Bearer Token = <code>name:streamkey</code>. Wer den Key hat, kann unter deinem Namen streamen.</p>
+    <div class="actions">
+      <button id="key-rotate" class="danger">Neuen Key erzeugen</button>
+      <button data-close class="secondary">Schließen</button>
+    </div>
+  </dialog>
+
+  <!-- Dialog: Passwort aendern -->
+  <dialog id="dlg-pw">
+    <h2>Passwort ändern</h2>
+    <form id="form-pw">
+      <label>Aktuelles Passwort <input name="oldPassword" type="password" autocomplete="current-password" required></label>
+      <label>Neues Passwort <input name="newPassword" type="password" autocomplete="new-password" minlength="8" required></label>
+      <p id="pw-error" class="error"></p>
+      <div class="actions">
+        <button type="submit">Speichern</button>
+        <button type="button" data-close class="secondary">Abbrechen</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Dialog: Nutzer -->
+  <dialog id="dlg-users">
+    <h2>Nutzer</h2>
+    <table id="users-table"><tbody></tbody></table>
+    <div class="actions"><button data-close class="secondary">Schließen</button></div>
+  </dialog>
+
+  <script src="/app.js"></script>
+</body>
+</html>

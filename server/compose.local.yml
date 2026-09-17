@@ -1,0 +1,21 @@
+# Override fuer den lokalen Test in WSL-Docker:
+#   docker compose -f docker-compose.yml -f compose.local.yml up -d --build
+# 8889 wird veroeffentlicht, damit OBS von Windows aus per http://<wsl-ip>:8889/<name>/whip senden kann.
+# Caddy bekommt zusaetzlich eine TLS-lose Site auf 8080 (Caddyfile.local), weil Browser das lokale Zertifikat ablehnen.
+services:
+  mediamtx:
+    ports:
+      - "8189:8189/udp"
+      - "8889:8889"
+  web:
+    environment:
+      INSECURE_COOKIES: "1"
+  caddy:
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - ./Caddyfile.local:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config

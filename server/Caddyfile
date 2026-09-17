@@ -1,0 +1,15 @@
+# Caddy holt automatisch ein Let's-Encrypt-Zertifikat fuer $DOMAIN (HTTP-Challenge ueber Port 80).
+# DOMAIN kommt aus .env (z. B. stream.example.org).
+{$DOMAIN} {
+    encode gzip
+
+    # WHIP (OBS) und WHEP (Player) gehen an MediaMTX, alles andere an die Website.
+    @media path_regexp ^/[a-z0-9_-]+/(whip|whep)(/.*)?$
+    reverse_proxy @media mediamtx:8889
+
+    # Der Auth-Hook ist nur fuer MediaMTX im Docker-Netz, von aussen nicht erreichbar.
+    @hook path /api/mediamtx/*
+    respond @hook 404
+
+    reverse_proxy web:3000
+}

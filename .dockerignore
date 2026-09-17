@@ -1,0 +1,7 @@
+web/node_modules
+server/.env
+relay.json
+PRIVATE*.md
+dist
+*.zip
+*.db

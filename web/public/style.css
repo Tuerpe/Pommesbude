@@ -1,0 +1,112 @@
+:root {
+  --bg: #1e1f22; --bg2: #2b2d31; --bg3: #313338; --border: #3f4147;
+  --fg: #dbdee1; --fg2: #949ba4; --accent: #5865f2; --live: #23a559; --danger: #da373c;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 15px/1.4 system-ui, "Segoe UI", sans-serif; }
+.hidden { display: none !important; }
+button { font: inherit; border: 0; border-radius: 6px; padding: 8px 14px; background: var(--accent); color: #fff; cursor: pointer; }
+button:hover { filter: brightness(1.1); }
+button.secondary { background: var(--bg3); color: var(--fg); }
+button.danger { background: var(--danger); }
+button:disabled { opacity: .5; cursor: default; }
+input { font: inherit; width: 100%; padding: 9px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); }
+label { display: block; margin: 10px 0; font-size: 13px; color: var(--fg2); }
+label input { margin-top: 4px; }
+.row { display: flex; gap: 6px; margin-top: 4px; }
+.row input { flex: 1; font-family: ui-monospace, monospace; font-size: 13px; }
+.hint { color: var(--fg2); font-size: 13px; }
+.error { color: #f38688; min-height: 1.4em; margin: 8px 0 0; }
+code { background: var(--bg); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+
+/* Auth-Karten */
+.auth { min-height: 100%; display: grid; place-items: center; padding: 16px; }
+.card { width: min(400px, 100%); background: var(--bg2); border-radius: 12px; padding: 24px; box-shadow: 0 8px 30px #0006; }
+.card h1 { margin: 0 0 16px; font-size: 22px; }
+.tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+.tabs button { flex: 1; background: var(--bg3); color: var(--fg2); }
+.tabs button.active { background: var(--accent); color: #fff; }
+.card form button[type=submit] { width: 100%; margin-top: 8px; }
+
+/* Header */
+header { flex: 0 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; background: var(--bg2); border-bottom: 1px solid var(--border); z-index: 5; }
+.brand { font-weight: 700; font-size: 17px; }
+.status { color: var(--fg2); flex: 1; }
+nav { display: flex; align-items: center; gap: 8px; }
+.me { color: var(--fg2); padding: 0 6px; }
+.badge { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 12px; line-height: 18px; text-align: center; margin-left: 4px; }
+
+/* Raster */
+#main { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+main { flex: 1 1 auto; min-height: 0; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; overflow: hidden; --strip-h: 160px; }
+.grid-area { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+.grid { display: grid; gap: 10px; grid-template-columns: repeat(var(--cols, 1), var(--tile-w, 320px)); grid-auto-rows: var(--tile-h, 180px); justify-content: center; align-content: center; width: 100%; height: 100%; }
+.tile { position: relative; background: #000; border-radius: 10px; overflow: hidden; outline: 2px solid transparent; transition: outline-color .15s; }
+.tile.audio-on { outline-color: var(--live); }
+.tile video { width: 100%; height: 100%; object-fit: contain; display: block; background: #000; cursor: pointer; }
+.tile .bar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: linear-gradient(transparent, #000c); font-size: 14px; }
+.tile .name { font-weight: 600; flex: 1; text-shadow: 0 1px 2px #000; }
+.tile .live { color: var(--live); font-size: 12px; font-weight: 700; }
+.tile .state { color: var(--fg2); font-size: 12px; }
+.tile .bar button { padding: 4px 8px; background: #0008; font-size: 16px; line-height: 1; }
+.tile .bar button.on { background: var(--live); }
+
+/* Ansichts-Leiste */
+.viewbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.viewlabel { color: var(--fg2); font-size: 13px; margin-right: 4px; }
+.viewbar button { padding: 5px 10px; font-size: 13px; }
+.viewbar button.active { background: var(--accent); color: #fff; }
+.viewsep { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
+.viewhint { margin-left: auto; font-size: 12px; }
+
+
+/* Kleine Leiste unten */
+.splitter { flex: 0 0 10px; display: flex; align-items: center; justify-content: center; cursor: row-resize; touch-action: none; }
+.splitter span { width: 60px; height: 4px; border-radius: 2px; background: var(--border); }
+.splitter:hover span, .splitter.active span { background: var(--accent); }
+.strip-wrap { flex: 0 0 var(--strip-h); padding: 8px; background: var(--bg2); border-radius: 10px; box-sizing: border-box; min-height: 0; }
+.strip { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; height: 100%; align-items: center; }
+.strip-empty { color: var(--fg2); font-size: 13px; padding: 12px; pointer-events: none; }
+.strip .tile { flex: 0 0 auto; height: 100%; aspect-ratio: 16/9; }
+.strip .tile .bar { padding: 3px 6px; font-size: 12px; gap: 4px; }
+.strip .tile .bar button { padding: 2px 5px; font-size: 13px; }
+.strip .tile .state { display: none; }
+
+/* Drag & Drop */
+.tile { cursor: grab; }
+.tile.dragging { opacity: .4; }
+.grid.drop, .strip.drop { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: 10px; }
+.grid:empty { display: none; }
+body.resizing { user-select: none; cursor: row-resize; }
+.tile .bar button.on { background: var(--live); }
+.badge-cam { font-size: 13px; }
+.tile.cam { outline-color: transparent; }
+.empty.small { margin: 0; font-size: 14px; }
+
+/* Offline-Chips */
+.offline { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 6px; }
+.offline:empty { display: none; }
+.chip { padding: 3px 10px; border-radius: 12px; background: var(--bg3); color: var(--fg2); font-size: 13px; }
+.empty { color: var(--fg2); text-align: center; margin: 0; font-size: 17px; }
+
+/* Dialoge */
+dialog { background: var(--bg2); color: var(--fg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; width: min(520px, 92vw); }
+dialog::backdrop { background: #000a; }
+dialog h2 { margin: 0 0 10px; font-size: 18px; }
+.actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+table { width: 100%; border-collapse: collapse; }
+td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
+td:last-child { text-align: right; white-space: nowrap; }
+td button { padding: 4px 10px; font-size: 13px; }
+.st-pending { color: #f0b232; font-size: 13px; }
+.st-approved { color: var(--live); font-size: 13px; }
+
+@media (max-width: 700px) {
+  header { flex-wrap: wrap; }
+  .status { order: 3; width: 100%; }
+  main { --strip-h: 120px !important; }
+  .splitter { display: none !important; }
+  .viewhint { display: none; }
+}
+.chip.own { background: #3a2f33; color: var(--fg); display: inline-flex; align-items: center; gap: 8px; }
+.chip.own button { padding: 2px 8px; font-size: 12px; }

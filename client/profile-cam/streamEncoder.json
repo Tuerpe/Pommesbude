@@ -1,0 +1,14 @@
+{
+    "rate_control": "cbr",
+    "bitrate": 2500,
+    "max_bitrate": 2500,
+    "keyint_sec": 2,
+    "preset": "p5",
+    "tune": "hq",
+    "multipass": "qres",
+    "profile": "high",
+    "lookahead": false,
+    "adaptive_quantization": true,
+    "bf": 2,
+    "repeat_headers": true
+}

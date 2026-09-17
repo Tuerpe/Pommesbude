@@ -1,0 +1,53 @@
+###############################################################################
+# MediaMTX-Konfiguration fuer das Stream-Relay
+# Nur Abweichungen vom Default (https://github.com/bluenviron/mediamtx/blob/v1.21.0/mediamtx.yml).
+###############################################################################
+
+logLevel: info
+logDestinations: [stdout]
+
+# Nicht benoetigte Protokolle abschalten (kein RTMP wegen AAC/Opus-Problem).
+rtsp: no
+rtmp: no
+hls: no
+srt: no
+moq: no
+metrics: no
+pprof: no
+playback: no
+
+# Control-API nur intern (Compose-Netz), die Website fragt damit ab, wer live ist.
+api: yes
+apiAddress: :9997
+
+###############################################
+# Auth: jede publish/read-Anfrage wird an die Website weitergereicht.
+# Publish: OBS-Bearer "name:streamkey" -> user/password. Read: Player-Bearer <viewerToken> -> token.
+authMethod: http
+authHTTPAddress: http://web:3000/api/mediamtx/auth
+authHTTPExclude:
+  - action: api
+  - action: metrics
+  - action: pprof
+
+###############################################
+# WebRTC (WHIP-Ingest aus OBS, WHEP-Wiedergabe im Browser)
+webrtc: yes
+webrtcAddress: :8889
+# TLS macht Caddy, MediaMTX spricht intern nur HTTP.
+webrtcEncryption: no
+webrtcAllowOrigins: ["*"]
+# Docker-Compose-Netz (siehe docker-compose.yml), damit die echte Client-IP aus X-Forwarded-For gelesen wird.
+webrtcTrustedProxies: ["172.30.0.0/24"]
+# UDP-Port fuer die eigentlichen Medien, wird 1:1 nach aussen durchgereicht.
+webrtcLocalUDPAddress: :8189
+webrtcLocalTCPAddress: ""
+# Container-IPs sind von aussen nutzlos, stattdessen die oeffentliche IP des VPS ankuendigen.
+webrtcIPsFromInterfaces: no
+webrtcAdditionalHosts: ["__PUBLIC_IP__"]
+webrtcICEServers2: []
+
+###############################################
+# Pfade: jeder Name erlaubt, der Auth-Hook laesst publish nur auf den eigenen Nutzernamen zu.
+paths:
+  all_others:
