@@ -33,7 +33,7 @@ UDP 8189 (media) directly to mediamtx.
 |---|---|
 | `server/` | `docker-compose.yml` (MediaMTX 1.21 + web + Caddy 2), `mediamtx.yml`, `Caddyfile`, `install.sh`, `firewall.md`, local test overrides |
 | `web/` | Website and API: `server.js`, `db.js`, `public/`, `Dockerfile` (also builds the client package) |
-| `client/` | Windows client: `setup-obs.ps1`, `stream.ps1` (launcher), OBS profiles and scene collections |
+| `client/` | Windows client: `setup-obs.ps1` (called by `Setup.cmd`), `stream.ps1` (launcher), OBS profiles and scene collections |
 | `docs/` | `ANLEITUNG.md` (German user guide), `GUIDE.md` (English user guide), `SERVER.md` (operations, German) |
 | `scripts/` | `build-packages.ps1` builds `dist/pommesbude-server.zip` and `dist/pommesbude-client.zip` (the two release downloads) |
 | `VERSION` | single source of the client version the server announces |
@@ -46,7 +46,7 @@ Each release ships two separate archives:
 | Archive | For whom | Contents |
 |---|---|---|
 | `pommesbude-server.zip` | the operator (one person per group) | everything needed to run a server: `server/`, `web/`, `client/`, `docs/`, `VERSION` |
-| `pommesbude-client.zip` | every streamer | Windows client only: `client/`, the user guides, `VERSION`, `relay.example.json` |
+| `pommesbude-client.zip` | every streamer | Windows client only: `Setup.cmd`, `client/`, the user guides, `VERSION`, `relay.example.json` |
 
 The running server also serves its matching client package at `https://<domain>/client/pommesbude-client.zip`, so streamers normally get it there or from the operator, together with the operator's `relay.json`.
 
@@ -64,7 +64,7 @@ approved automatically), create a `relay.json` from `relay.example.json` and giv
 
 ## Client setup (short)
 
-Install OBS Studio 30+, download `pommesbude-client.zip` (from the release or from `https://<domain>/client/pommesbude-client.zip`), unpack, put the operator's `relay.json` next to
+`Setup.cmd`, double-click `Setup.cmd`, enter your username and stream key from the website. OBS Studio 30+ is installed or upgraded on demand (winget). Then use the desktop shortcut
 `VERSION`, run `client\setup-obs.ps1`, enter your username and stream key from the website. Then use the desktop shortcut
 **Stream starten**. Details: `docs/GUIDE.md`.
 
@@ -108,7 +108,7 @@ Jedes Release hat zwei getrennte Archive:
 | Archiv | Für wen | Inhalt |
 |---|---|---|
 | `pommesbude-server.zip` | der Betreiber (eine Person pro Gruppe) | alles für den Server: `server/`, `web/`, `client/`, `docs/`, `VERSION` |
-| `pommesbude-client.zip` | jeder Streamer | nur der Windows-Client: `client/`, die Anleitungen, `VERSION`, `relay.example.json` |
+| `pommesbude-client.zip` | jeder Streamer | nur der Windows-Client: `Setup.cmd`, `client/`, die Anleitungen, `VERSION`, `relay.example.json` |
 
 Der laufende Server liefert sein passendes Client-Paket zusätzlich unter `https://<domain>/client/pommesbude-client.zip` aus. Streamer bekommen es also dort oder vom Betreiber, zusammen mit dessen `relay.json`.
 
@@ -126,8 +126,8 @@ Nutzer ist automatisch freigegeben), aus `relay.example.json` eine `relay.json` 
 
 ## Client einrichten (kurz)
 
-OBS Studio 30+ installieren, `pommesbude-client.zip` laden (aus dem Release oder von `https://<domain>/client/pommesbude-client.zip`), entpacken, die `relay.json` des Betreibers neben
-`VERSION` legen, `client\setup-obs.ps1` ausführen, Benutzername und Stream-Key von der Website eingeben. Danach Doppelklick auf
+`pommesbude-client.zip` laden (aus dem Release oder von `https://<domain>/client/pommesbude-client.zip`), entpacken, die `relay.json` des Betreibers neben
+`Setup.cmd` legen, `Setup.cmd` doppelklicken, Benutzername und Stream-Key von der Website eingeben. OBS Studio 30+ wird bei Bedarf installiert oder aktualisiert (winget). Danach Doppelklick auf
 **Stream starten**. Details: `docs/ANLEITUNG.md`.
 
 ## Updates

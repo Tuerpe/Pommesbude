@@ -41,11 +41,11 @@ New-Package 'pommesbude-server' {
     }
     Remove-Item (Join-Path $stage 'web\node_modules') -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item (Join-Path $stage 'server\.env') -Force -ErrorAction SilentlyContinue
-    foreach ($f in 'VERSION', 'README.md', 'LICENSE', 'relay.example.json', '.dockerignore', '.gitignore') { Copy-Item (Join-Path $root $f) $stage -Force }
+    foreach ($f in 'VERSION', 'README.md', 'LICENSE', 'relay.example.json', 'Setup.cmd', '.dockerignore', '.gitignore') { Copy-Item (Join-Path $root $f) $stage -Force }
 }
 
 New-Package 'pommesbude-client' {
     param($stage)
     Copy-Item (Join-Path $root 'client') (Join-Path $stage 'client') -Recurse -Force
-    foreach ($f in 'docs\ANLEITUNG.md', 'docs\GUIDE.md', 'VERSION', 'relay.example.json') { Copy-Item (Join-Path $root $f) $stage -Force }
+    foreach ($f in 'docs\ANLEITUNG.md', 'docs\GUIDE.md', 'VERSION', 'relay.example.json', 'Setup.cmd') { Copy-Item (Join-Path $root $f) $stage -Force }
 }

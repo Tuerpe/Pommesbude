@@ -27,13 +27,12 @@ Hinweis: Jeder laufende Stream sind ca. 8 Mbit/s Download. Bei 3 Streams also ca
 
 ## 3. Selbst streamen (einmalig einrichten, 5 Minuten)
 
-1. **OBS Studio installieren** (Version 30 oder neuer): https://obsproject.com/download
-   OBS einmal starten, den Einrichtungs-Assistenten mit **Abbrechen** schließen, OBS beenden.
-2. Auf der Website oben **Mein Stream-Key** klicken. Den Key kopieren (der Teil nach dem Doppelpunkt, 48 Zeichen).
-3. **Zip entpacken** (Ordner `stream-relay`), z. B. nach `C:\stream-relay`.
-4. **Rechtsklick auf `obs\setup-obs.ps1` → "Mit PowerShell ausführen"**. Benutzername und Stream-Key eingeben.
-   Falls Windows das Skript blockiert: PowerShell öffnen und eingeben
-   `powershell -ExecutionPolicy Bypass -File C:\stream-relay\obs\setup-obs.ps1`
+1. Auf der Website oben **Mein Stream-Key** klicken. Den Key kopieren (der Teil nach dem Doppelpunkt, 48 Zeichen).
+2. **Client-Paket entpacken** (`pommesbude-client.zip`, gibt es auf der Website unter `/client/pommesbude-client.zip` oder vom Betreiber), z. B. nach `C:\pommesbude`.
+   Die **`relay.json`** vom Betreiber in denselben Ordner legen (neben `Setup.cmd`).
+3. **Doppelklick auf `Setup.cmd`.** Benutzername und Stream-Key eingeben.
+   Fehlt OBS Studio oder ist es älter als Version 30, bietet das Setup an, es automatisch zu installieren bzw. zu aktualisieren (Windows fragt dabei einmal nach Admin-Rechten). Danach OBS einmal starten, den Assistenten mit **Abbrechen** schließen, OBS beenden und im Setup Enter drücken.
+
 Danach liegen auf dem Desktop: **Stream starten** und **Stream Stop**.
 
 ## 4. Streamen
@@ -56,7 +55,7 @@ Hotkeys im laufenden Stream (feste Szenen aus OBS): `Strg+Alt+1/2` = Monitor 1/2
 ## Updates
 
 Beim Start prüft "Stream starten" beim Server, ob es eine neue Version gibt, und bietet sie an. Ist die installierte Version zu alt für den Server, ist das Update Pflicht. Das Update läuft automatisch (OBS darf dabei nicht laufen), Name, Stream-Key und Einstellungen bleiben erhalten.
-Manuell: neues Paket entpacken, `relay.json` daneben legen, `setup-obs.ps1` erneut ausführen.
+Manuell: neues Paket entpacken, `relay.json` daneben legen, `Setup.cmd` erneut ausführen.
 
 ## Wenn etwas nicht geht
 
@@ -64,11 +63,11 @@ Manuell: neues Paket entpacken, `relay.json` daneben legen, `setup-obs.ps1` erne
 |---|---|
 | Bild ruckelt oder friert bei Zuschauern | Dein Upload ist zu schwach. OBS öffnen → Einstellungen → Ausgabe → Bitrate von 8000 auf 6000 (oder 4500) senken. |
 | Spiel bleibt schwarz | Spiel auf "Randloses Fenster" stellen und im Auswahlfenster ohne Hook wählen. Bei echtem Vollbild das Häkchen "Spielaufnahme (Hook)" setzen. |
-| "Verbindung fehlgeschlagen" beim Start | Stream-Key falsch oder Server down. Auf der Website "Mein Stream-Key" prüfen, `setup-obs.ps1` nochmal ausführen. |
+| "Verbindung fehlgeschlagen" beim Start | Stream-Key falsch oder Server down. Auf der Website "Mein Stream-Key" prüfen, `Setup.cmd` nochmal ausführen. |
 | Ich sehe "Warte auf Freigabe" | Jemand muss dich unter **Nutzer** freigeben. |
-| Stream-Key ist jemandem bekannt geworden | Website → Mein Stream-Key → **Neuen Key erzeugen**, dann `setup-obs.ps1` neu ausführen. |
+| Stream-Key ist jemandem bekannt geworden | Website → Mein Stream-Key → **Neuen Key erzeugen**, dann `Setup.cmd` neu ausführen. |
 | Beim Doppelklick auf "Stream starten" passiert nichts oder ein Fehlerfenster kommt | Einmal **Stream Stop** doppelklicken, 10 s warten, dann "Stream starten" erneut. Details stehen in `%LOCALAPPDATA%stream-relaylauncher.log`. |
-| Auswahlfenster ist leer oder Fehler "Keine Verbindung zu OBS" | OBS einmal komplett beenden (Stream Stop), 10 s warten, nochmal. Bleibt es: `setup-obs.ps1` erneut ausführen. |
+| Auswahlfenster ist leer oder Fehler "Keine Verbindung zu OBS" | OBS einmal komplett beenden (Stream Stop), 10 s warten, nochmal. Bleibt es: `Setup.cmd` erneut ausführen. |
 | Kamera bleibt schwarz | Kamera wird gerade von Discord o. ä. benutzt, dort Video aus. Oder im LIVE-Fenster Kamera aus und wieder an. |
 | Hotkeys wirken nicht | Manche Spiele schlucken Strg+Alt+Zahl. In OBS unter Einstellungen → Hotkeys andere Tasten setzen. |
 

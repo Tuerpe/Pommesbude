@@ -12,7 +12,7 @@ COPY VERSION ./VERSION
 # Client-Paket bauen: client/ (Setup, Launcher, OBS-Vorlagen) + Anleitungen + VERSION + relay.example.json
 COPY client ./pkg/client
 COPY docs/ANLEITUNG.md docs/GUIDE.md ./pkg/
-COPY relay.example.json ./pkg/
+COPY relay.example.json Setup.cmd ./pkg/
 RUN cp VERSION pkg/VERSION && mkdir -p public/client && cd pkg && zip -qr ../public/client/pommesbude-client.zip . && cd .. && rm -rf pkg
 RUN mkdir -p /data
 VOLUME ["/data"]

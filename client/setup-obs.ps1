@@ -41,15 +41,38 @@ if (Test-Path (Join-Path $launcherDir 'launcher.json')) { $existingCfg = Get-Con
 # --- 0. Vorbedingungen ---------------------------------------------------------
 if (Get-Process obs64 -ErrorAction SilentlyContinue) { Fail 'OBS laeuft noch. Bitte erst beenden (Stream Stop).' }
 $obsExe = Join-Path $ObsDir 'bin\64bit\obs64.exe'
-if (-not (Test-Path $obsExe) -and $existingCfg -and (Test-Path $existingCfg.obsExe)) { $obsExe = $existingCfg.obsExe; $ObsDir = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $obsExe)) }
-if (-not (Test-Path $obsExe)) {
-    if ($Update) { Fail "OBS nicht gefunden: $obsExe" }
-    $ObsDir = Read-Host "OBS nicht unter $ObsDir gefunden. Installationsordner eingeben"
-    $obsExe = Join-Path $ObsDir 'bin\64bit\obs64.exe'
-    if (-not (Test-Path $obsExe)) { Fail 'obs64.exe nicht gefunden. OBS Studio 30 oder neuer installieren.' }
+if (-not (Test-Path $obsExe) -and $existingCfg -and $existingCfg.obsExe -and (Test-Path $existingCfg.obsExe)) { $obsExe = $existingCfg.obsExe }
+function Get-ObsVersion { if (Test-Path $obsExe) { try { [version](((Get-Item $obsExe).VersionInfo.ProductVersion) -replace '[^\d.].*$', '') } catch { [version]'0.0' } } else { $null } }
+# OBS fehlt oder ist zu alt (WHIP gibt es ab 30): Installation/Update per winget anbieten, sonst Download-Seite oeffnen.
+function Ensure-Obs {
+    $v = Get-ObsVersion
+    if ($v -and $v -ge [version]'30.0') { return }
+    $what = if ($v) { "OBS $v ist zu alt, mindestens Version 30 wird gebraucht." } else { "OBS Studio wurde nicht gefunden ($obsExe)." }
+    if ($Update) { Fail "$what Bitte OBS aktualisieren (https://obsproject.com/download) und den Launcher erneut starten." }
+    Write-Host $what -ForegroundColor Yellow
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        $verb = if ($v) { 'aktualisieren' } else { 'installieren' }
+        $a = Read-Host "Jetzt automatisch $verb (per winget)? Dauert 1-2 Minuten, Windows fragt einmal nach Admin-Rechten. [J/n]"
+        if ($a -eq '' -or $a -match '^[jJyY]') {
+            $cmd = if ($v) { 'upgrade' } else { 'install' }
+            & winget $cmd --id OBSProject.OBSStudio -e --accept-package-agreements --accept-source-agreements
+            if (-not (Test-Path $obsExe)) { $script:obsExe = 'C:\Program Files\obs-studio\bin\64bit\obs64.exe' }
+            $v = Get-ObsVersion
+            if ($v -and $v -ge [version]'30.0') {
+                Write-Host "OBS $v ist installiert. Bitte OBS jetzt EINMAL starten, den Assistenten mit Abbrechen schliessen und OBS wieder beenden." -ForegroundColor Yellow
+                Read-Host 'Danach hier Enter druecken' | Out-Null
+                if (Get-Process obs64 -ErrorAction SilentlyContinue) { Fail 'OBS laeuft noch. Bitte beenden und Setup erneut starten.' }
+                return
+            }
+            Write-Host 'winget hat OBS nicht auf Version 30 oder neuer gebracht.' -ForegroundColor Yellow
+        }
+    }
+    Start-Process 'https://obsproject.com/download'
+    Fail 'Bitte OBS Studio 30 oder neuer von obsproject.com installieren (Seite wurde geoeffnet), einmal starten, schliessen, dann Setup erneut ausfuehren.'
 }
-$ver = (Get-Item $obsExe).VersionInfo.ProductVersion
-if ([version]($ver -replace '[^\d.].*$','') -lt [version]'30.0') { Fail "OBS $ver ist zu alt, mindestens 30 noetig (WHIP)." }
+Ensure-Obs
+$ObsDir = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $obsExe))
+$ver = Get-ObsVersion
 Write-Host "OBS $ver gefunden." -ForegroundColor Green
 
 $cfg = Join-Path $env:APPDATA 'obs-studio'
