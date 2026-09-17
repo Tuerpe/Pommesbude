@@ -113,10 +113,29 @@ if (-not $Domain) {
 if (-not $Name) {
     do { $Name = (Read-Host 'Dein Benutzername auf der Website (klein geschrieben)').Trim().ToLower() } until ($Name -match '^[a-z0-9_-]{2,20}$')
 }
+# Stream-Key: mit Name + Website-Passwort anmelden und den Key vom Server holen (kein Kopieren noetig).
 if (-not $StreamKey) {
-    Write-Host "Stream-Key: auf https://$Domain/ einloggen -> 'Mein Stream-Key' -> nur den Teil NACH dem Doppelpunkt kopieren."
-    $StreamKey = (Read-Host 'Stream-Key').Trim()
-    if ($StreamKey -match '^[a-z0-9_-]+:([0-9a-f]+)$') { $StreamKey = $Matches[1] }   # falls "name:key" eingefuegt wurde
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    for ($attempt = 1; $attempt -le 3 -and -not $StreamKey; $attempt++) {
+        $sec = Read-Host "Dein Passwort auf https://$Domain/" -AsSecureString
+        $pw = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
+        if (-not $pw) { continue }
+        try {
+            $body = @{ name = $Name; password = $pw } | ConvertTo-Json -Compress
+            Invoke-RestMethod -Uri "https://$Domain/api/login" -Method Post -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body)) -SessionVariable web -TimeoutSec 15 | Out-Null
+            $me = Invoke-RestMethod -Uri "https://$Domain/api/me" -WebSession $web -TimeoutSec 15
+            Invoke-RestMethod -Uri "https://$Domain/api/logout" -Method Post -WebSession $web -TimeoutSec 15 -ErrorAction SilentlyContinue | Out-Null
+            if ($me.status -ne 'approved') { Fail "Dein Konto '$Name' ist noch nicht freigegeben. Bitte jemanden aus der Gruppe bitten, dich auf der Website unter 'Nutzer' freizuschalten, dann Setup erneut starten." }
+            $StreamKey = [string]$me.streamKey
+            Write-Host 'Angemeldet, Stream-Key vom Server geholt.' -ForegroundColor Green
+        } catch {
+            $code = try { [int]$_.Exception.Response.StatusCode } catch { 0 }
+            if ($code -eq 401) { Write-Host 'Name oder Passwort falsch.' -ForegroundColor Yellow }
+            elseif ($code -eq 429) { Fail 'Zu viele Fehlversuche. Bitte 15 Minuten warten.' }
+            else { Fail "Website https://$Domain/ nicht erreichbar: $($_.Exception.Message)" }
+        }
+    }
+    if (-not $StreamKey) { Fail 'Anmeldung fehlgeschlagen. Passwort auf der Website pruefen (dort gibt es auch "Passwort" zum Aendern).' }
 }
 if ($StreamKey -notmatch '^[0-9a-f]{48}$') { Fail 'Stream-Key sieht falsch aus (48 Hex-Zeichen erwartet).' }
 

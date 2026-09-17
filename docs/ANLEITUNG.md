@@ -27,10 +27,9 @@ Hinweis: Jeder laufende Stream sind ca. 8 Mbit/s Download. Bei 3 Streams also ca
 
 ## 3. Selbst streamen (einmalig einrichten, 5 Minuten)
 
-1. Auf der Website oben **Mein Stream-Key** klicken. Den Key kopieren (der Teil nach dem Doppelpunkt, 48 Zeichen).
-2. **Client-Paket entpacken** (`pommesbude-client.zip`, gibt es auf der Website unter `/client/pommesbude-client.zip` oder vom Betreiber), z. B. nach `C:\pommesbude`.
+1. **Client-Paket entpacken** (`pommesbude-client.zip`, gibt es auf der Website unter `/client/pommesbude-client.zip` oder vom Betreiber), z. B. nach `C:\pommesbude`.
    Die **`relay.json`** vom Betreiber in denselben Ordner legen (neben `Setup.cmd`).
-3. **Doppelklick auf `Setup.cmd`.** Benutzername und Stream-Key eingeben.
+2. **Doppelklick auf `Setup.cmd`.** Benutzername und Passwort der Website eingeben (dieselben wie beim Einloggen), den Rest holt sich das Setup selbst.
    Fehlt OBS Studio oder ist es älter als Version 30, bietet das Setup an, es automatisch zu installieren bzw. zu aktualisieren (Windows fragt dabei einmal nach Admin-Rechten). Danach OBS einmal starten, den Assistenten mit **Abbrechen** schließen, OBS beenden und im Setup Enter drücken.
 
 Danach liegen auf dem Desktop: **Stream starten** und **Stream Stop**.
@@ -63,7 +62,7 @@ Manuell: neues Paket entpacken, `relay.json` daneben legen, `Setup.cmd` erneut a
 |---|---|
 | Bild ruckelt oder friert bei Zuschauern | Dein Upload ist zu schwach. OBS öffnen → Einstellungen → Ausgabe → Bitrate von 8000 auf 6000 (oder 4500) senken. |
 | Spiel bleibt schwarz | Spiel auf "Randloses Fenster" stellen und im Auswahlfenster ohne Hook wählen. Bei echtem Vollbild das Häkchen "Spielaufnahme (Hook)" setzen. |
-| "Verbindung fehlgeschlagen" beim Start | Stream-Key falsch oder Server down. Auf der Website "Mein Stream-Key" prüfen, `Setup.cmd` nochmal ausführen. |
+| "Verbindung fehlgeschlagen" beim Start | Stream-Key veraltet oder Server down. `Setup.cmd` nochmal ausführen (holt den aktuellen Key). |
 | Ich sehe "Warte auf Freigabe" | Jemand muss dich unter **Nutzer** freigeben. |
 | Stream-Key ist jemandem bekannt geworden | Website → Mein Stream-Key → **Neuen Key erzeugen**, dann `Setup.cmd` neu ausführen. |
 | Beim Doppelklick auf "Stream starten" passiert nichts oder ein Fehlerfenster kommt | Einmal **Stream Stop** doppelklicken, 10 s warten, dann "Stream starten" erneut. Details stehen in `%LOCALAPPDATA%\stream-relay\launcher.log`. |

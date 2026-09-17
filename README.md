@@ -64,7 +64,7 @@ approved automatically), create a `relay.json` from `relay.example.json` and giv
 
 ## Client setup (short)
 
-`Setup.cmd`, double-click `Setup.cmd`, enter your username and stream key from the website. OBS Studio 30+ is installed or upgraded on demand (winget). Then use the desktop shortcut
+`Setup.cmd`, double-click `Setup.cmd`, enter your website username and password (the stream key is fetched automatically). OBS Studio 30+ is installed or upgraded on demand (winget). Then use the desktop shortcut
 `VERSION`, run `client\setup-obs.ps1`, enter your username and stream key from the website. Then use the desktop shortcut
 **Stream starten**. Details: `docs/GUIDE.md`.
 
@@ -127,7 +127,7 @@ Nutzer ist automatisch freigegeben), aus `relay.example.json` eine `relay.json` 
 ## Client einrichten (kurz)
 
 `pommesbude-client.zip` laden (aus dem Release oder von `https://<domain>/client/pommesbude-client.zip`), entpacken, die `relay.json` des Betreibers neben
-`Setup.cmd` legen, `Setup.cmd` doppelklicken, Benutzername und Stream-Key von der Website eingeben. OBS Studio 30+ wird bei Bedarf installiert oder aktualisiert (winget). Danach Doppelklick auf
+`Setup.cmd` legen, `Setup.cmd` doppelklicken, Benutzername und Passwort der Website eingeben (der Stream-Key wird automatisch geholt). OBS Studio 30+ wird bei Bedarf installiert oder aktualisiert (winget). Danach Doppelklick auf
 **Stream starten**. Details: `docs/ANLEITUNG.md`.
 
 ## Updates

@@ -27,10 +27,9 @@ Note: every running stream is about 8 Mbit/s download, a camera about 2.5 Mbit/s
 
 ## 3. Streaming yourself (one-time setup, 5 minutes)
 
-1. On the website click **My stream key** at the top. Copy the key (the part after the colon, 48 characters).
-2. **Unpack the client package** (`pommesbude-client.zip`, available on the website at `/client/pommesbude-client.zip` or from the operator), e.g. to `C:\pommesbude`.
+1. **Unpack the client package** (`pommesbude-client.zip`, available on the website at `/client/pommesbude-client.zip` or from the operator), e.g. to `C:\pommesbude`.
    Put the **`relay.json`** from the operator into the same folder (next to `Setup.cmd`).
-3. **Double-click `Setup.cmd`.** Enter username and stream key.
+2. **Double-click `Setup.cmd`.** Enter your website username and password (the same you use to log in); the setup fetches everything else itself.
    If OBS Studio is missing or older than version 30, the setup offers to install or upgrade it automatically (Windows asks once for admin rights). Then start OBS once, close the wizard with **Cancel**, quit OBS and press Enter in the setup.
 
 Afterwards you have two desktop shortcuts: **Stream starten** (start) and **Stream Stop**.
@@ -63,7 +62,7 @@ Manually: unpack the new package, put `relay.json` next to it, run `Setup.cmd` a
 |---|---|
 | Picture stutters or freezes for viewers | Your upload is too weak. OBS → Settings → Output → lower bitrate from 8000 to 6000 (or 4500). |
 | Game picture stays black | Set the game to "borderless window" and pick it in the chooser without the hook. For true fullscreen tick "Spielaufnahme (Hook)". |
-| "Connection failed" on start | Stream key wrong or server down. Check "My stream key" on the website, run `Setup.cmd` again. |
+| "Connection failed" on start | Stream key outdated or server down. Run `Setup.cmd` again (fetches the current key). |
 | I see "Waiting for approval" | Someone has to approve you under **Users**. |
 | Stream key leaked | Website → My stream key → **Generate new key**, then run `Setup.cmd` again. |
 | Nothing happens on double-click or an error window appears | Double-click **Stream Stop** once, wait 10 s, then "Stream starten" again. Details are in `%LOCALAPPDATA%\stream-relay\launcher.log`. |
