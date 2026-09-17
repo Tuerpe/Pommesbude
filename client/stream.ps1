@@ -22,7 +22,7 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $installDir = Join-Path $env:LOCALAPPDATA 'stream-relay'
 if (-not (Test-Path (Join-Path $here 'launcher.json')) -and (Test-Path (Join-Path $installDir 'launcher.json'))) { $here = $installDir }
 $cfgPath = Join-Path $here 'launcher.json'
-if (-not (Test-Path $cfgPath)) { [System.Windows.Forms.MessageBox]::Show("Der Client ist noch nicht eingerichtet (launcher.json fehlt). Bitte zuerst Setup.cmd ausfuehren, danach die Desktop-Verknuepfung 'Stream starten' benutzen.", 'Stream', 'OK', 'Error') | Out-Null; exit 1 }
+if (-not (Test-Path $cfgPath)) { Show-Box("Der Client ist noch nicht eingerichtet (launcher.json fehlt). Bitte zuerst Setup.cmd ausfuehren, danach die Desktop-Verknuepfung 'Stream starten' benutzen.", 'Stream', 'OK', 'Error') | Out-Null; exit 1 }
 $cfg = Get-Content $cfgPath -Raw | ConvertFrom-Json
 foreach ($k in 'lastValue', 'lastGameHook', 'lastCamera', 'lastCamOn', 'wsPortCam') {
     if (-not ($cfg.PSObject.Properties.Name -contains $k)) { $cfg | Add-Member -NotePropertyName $k -NotePropertyValue $(if ($k -eq 'wsPortCam') { [int]$cfg.wsPort + 1 } elseif ($k -like 'last*On' -or $k -eq 'lastGameHook') { $false } else { '' }) }
@@ -31,15 +31,22 @@ $obsExe = $cfg.obsExe
 $obsBin = Split-Path -Parent $obsExe
 $obsCfg = Join-Path $env:APPDATA 'obs-studio'
 $log = Join-Path $here 'launcher.log'
+# Dialoge immer im Vordergrund (der Launcher hat kein eigenes Hauptfenster, sonst landen sie hinter Spielen/Browser)
+function Show-Box($text, $title, $buttons, $icon) {
+    if ($text -is [array]) { $icon = $text[3]; $buttons = $text[2]; $title = $text[1]; $text = $text[0] }   # Aufruf im Stil Show-Box(a, b, c, d)
+    $o = New-Object Windows.Forms.Form; $o.TopMost = $true; $o.ShowInTaskbar = $false; $o.StartPosition = 'CenterScreen'; $o.Size = New-Object Drawing.Size(1, 1); $o.Opacity = 0
+    $o.Show(); $o.Activate()
+    try { return [System.Windows.Forms.MessageBox]::Show([System.Windows.Forms.IWin32Window]$o, [string]$text, [string]$title, [System.Windows.Forms.MessageBoxButtons]$buttons, [System.Windows.Forms.MessageBoxIcon]$icon) } finally { $o.Close(); $o.Dispose() }
+}
 function Log($m) { Add-Content -Path $log -Value ("{0} {1}" -f (Get-Date -Format 'HH:mm:ss.fff'), $m) -Encoding UTF8 }
-function Fail($m) { Log "FEHLER: $m"; [System.Windows.Forms.MessageBox]::Show($m, 'Stream', 'OK', 'Error') | Out-Null; exit 1 }
+function Fail($m) { Log "FEHLER: $m"; Show-Box($m, 'Stream', 'OK', 'Error') | Out-Null; exit 1 }
 function Save-Cfg { $cfg | ConvertTo-Json | Set-Content $cfgPath -Encoding UTF8 }
 if ((Test-Path $log) -and ((Get-Item $log).Length -gt 512KB)) { Remove-Item $log -Force }
 Log "=== Start (Stop=$Stop)"
 trap {
     $msg = "Unerwarteter Fehler: $($_.Exception.Message)`nZeile $($_.InvocationInfo.ScriptLineNumber): $($_.InvocationInfo.Line.Trim())"
     Log $msg; Log $_.ScriptStackTrace
-    [System.Windows.Forms.MessageBox]::Show("$msg`n`nDetails: $log", 'Stream', 'OK', 'Error') | Out-Null
+    Show-Box("$msg`n`nDetails: $log", 'Stream', 'OK', 'Error') | Out-Null
     exit 1
 }
 
@@ -195,7 +202,8 @@ function Invoke-ClientUpdate([string]$zipUrl, [string]$newVersion) {
     exit 0
 }
 try {
-    $remote = Invoke-RestMethod -Uri "https://$($cfg.domain)/api/config" -TimeoutSec 5 -UseBasicParsing
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $remote = Invoke-RestMethod -Uri "https://$($cfg.domain)/api/config" -TimeoutSec 8 -UseBasicParsing
     $installed = Get-InstalledVersion
     $latest = [version]$remote.clientVersion
     $minimum = [version]$remote.minClientVersion
@@ -203,15 +211,15 @@ try {
     Log "Version installiert $installed, Server $latest (mindestens $minimum)"
     if ($installed -lt $minimum) {
         if (-not $zipUrl) { Fail "Diese Version ($installed) ist zu alt fuer den Server (mindestens $minimum), aber der Server bietet kein Update-Paket an. Bitte neues Paket vom Betreiber holen und setup-obs.ps1 ausfuehren." }
-        $r = [System.Windows.Forms.MessageBox]::Show("Update erforderlich: Version $installed ist zu alt fuer den Server (mindestens $minimum).`n`nJetzt auf $latest aktualisieren? Ohne Update kann nicht gestreamt werden.", 'Stream', 'OKCancel', 'Warning')
+        $r = Show-Box("Update erforderlich: Version $installed ist zu alt fuer den Server (mindestens $minimum).`n`nJetzt auf $latest aktualisieren? Ohne Update kann nicht gestreamt werden.", 'Stream', 'OKCancel', 'Warning')
         if ($r -ne 'OK') { Log 'Pflicht-Update abgelehnt, Ende'; exit 1 }
         try { Invoke-ClientUpdate $zipUrl "$latest" } catch { Fail "Update fehlgeschlagen: $_" }
     } elseif ($installed -lt $latest -and $zipUrl) {
         $snooze = 0; try { $snooze = [long]$cfg.snoozeUntil } catch {}
         if ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() -ge $snooze) {
-            $r = [System.Windows.Forms.MessageBox]::Show("Update verfuegbar: $installed -> $latest.`n`nJetzt installieren? Dauert ein paar Sekunden; ein laufender Stream wird dafuer beendet.", 'Stream', 'YesNo', 'Question')
+            $r = Show-Box("Update verfuegbar: $installed -> $latest.`n`nJetzt installieren? Dauert ein paar Sekunden; ein laufender Stream wird dafuer beendet.", 'Stream', 'YesNo', 'Question')
             if ($r -eq 'Yes') {
-                try { Invoke-ClientUpdate $zipUrl "$latest" } catch { [System.Windows.Forms.MessageBox]::Show("Update fehlgeschlagen, es geht mit der alten Version weiter:`n$_", 'Stream', 'OK', 'Warning') | Out-Null }
+                try { Invoke-ClientUpdate $zipUrl "$latest" } catch { Show-Box("Update fehlgeschlagen, es geht mit der alten Version weiter:`n$_", 'Stream', 'OK', 'Warning') | Out-Null }
             } else {
                 $cfg | Add-Member -NotePropertyName snoozeUntil -NotePropertyValue ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + 86400) -Force; Save-Cfg
                 Log 'Update auf spaeter verschoben (24 h)'
@@ -320,7 +328,7 @@ function Show-Picker($monitors, $windows, $cameras, $last) {
     $cam = $null
     if ($cbC.SelectedIndex -gt 0) { $cam = $cameras | Where-Object { $_.Label -eq $cbC.SelectedItem } | Select-Object -First 1 }
     $sel = $lv.SelectedItems[0].Tag
-    if ($sel.Kind -eq 'camonly' -and -not $cam) { [System.Windows.Forms.MessageBox]::Show('Fuer "Nur Kamera" bitte eine Kamera auswaehlen.', 'Stream', 'OK', 'Warning') | Out-Null; return (Show-Picker $monitors $windows $cameras $last) }
+    if ($sel.Kind -eq 'camonly' -and -not $cam) { Show-Box('Fuer "Nur Kamera" bitte eine Kamera auswaehlen.', 'Stream', 'OK', 'Warning') | Out-Null; return (Show-Picker $monitors $windows $cameras $last) }
     return [pscustomobject]@{ Sel = $sel; Audio = $cbA.SelectedItem; GameHook = $chk.Checked; Camera = $cam; CamOn = ($chkC.Checked -and $cam) -or ($sel.Kind -eq 'camonly') }
 }
 
@@ -442,7 +450,7 @@ $bSwitch.Add_Click({
     $w = @(Get-Windows); $m = @(Get-Monitors); $c = @(Get-Cameras)
     $ch = Show-Picker $m $w $c $cfg.lastValue
     if ($ch) {
-        try { Apply-Choice $ch $w } catch { [System.Windows.Forms.MessageBox]::Show("$_", 'Stream', 'OK', 'Error') | Out-Null }
+        try { Apply-Choice $ch $w } catch { Show-Box("$_", 'Stream', 'OK', 'Error') | Out-Null }
         $lbl.Text = "$(if ($ch.Sel.Kind -eq 'camonly') { 'Nur Kamera' } else { 'LIVE: ' + $ch.Sel.Label })$(if ($script:camStreaming -and $ch.Sel.Kind -ne 'camonly') { '  |  Kamera an' })"
         $bCam.Text = if ($script:camStreaming) { 'Kamera aus' } else { 'Kamera an' }
     }
@@ -467,7 +475,7 @@ $bCam.Add_Click({
             Start-Cam $cam; $bCam.Text = 'Kamera aus'
         }
         $lbl.Text = Live-Text
-    } catch { [System.Windows.Forms.MessageBox]::Show("$_", 'Stream', 'OK', 'Error') | Out-Null }
+    } catch { Show-Box("$_", 'Stream', 'OK', 'Error') | Out-Null }
 })
 $bStop.Add_Click({
     Stop-Instance 'main'; Stop-Instance 'cam'
