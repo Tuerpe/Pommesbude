@@ -3,6 +3,7 @@ import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { readFileSync, existsSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import {
   createUser, getUserByName, getUserById, listUsers, approvedNames, approveUser, deleteUser, rotateStreamKey, setPassword,
   verifyPassword, createSession, userForSession, destroySession, viewerTokenFor, userForViewerToken, SESSION_TTL,
@@ -174,6 +175,17 @@ app.post('/api/users/:id/approve', requireLogin, requireApproved, (req, res) => 
   if (!approveUser(id, req.user.id)) return res.status(404).json({ error: 'not_pending' });
   console.log(`[users] ${req.user.name} approved #${id}`);
   res.status(204).end();
+});
+// Passwort eines anderen Nutzers zuruecksetzen: liefert ein einmaliges Startpasswort, das der Nutzer dann aendert.
+app.post('/api/users/:id/resetpw', requireLogin, requireApproved, (req, res) => {
+  const id = Number(req.params.id);
+  if (id === req.user.id) return res.status(400).json({ error: 'not_self' });
+  const target = getUserById(id);
+  if (!target) return res.status(404).json({ error: 'not_found' });
+  const temp = randomBytes(9).toString('base64url');
+  setPassword(id, temp);
+  console.log(`[users] ${req.user.name} reset password of ${target.name}`);
+  res.json({ tempPassword: temp });
 });
 app.post('/api/users/:id/delete', requireLogin, requireApproved, (req, res) => {
   const id = Number(req.params.id);

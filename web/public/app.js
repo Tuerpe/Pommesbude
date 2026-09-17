@@ -369,6 +369,11 @@
       el('td', { class: u.status === 'approved' ? 'st-approved' : 'st-pending' }, u.status === 'approved' ? 'freigegeben' : 'wartet'),
       el('td', {},
         ...(u.status === 'pending' ? [el('button', { onclick: async () => { await api('POST', `/api/users/${u.id}/approve`); openUsers(); } }, 'Freigeben')] : []),
+        ...(u.name !== me.name ? [el('button', { class: 'secondary', onclick: async () => {
+          if (!confirm(`Passwort von ${u.name} zuruecksetzen? Das alte gilt dann nicht mehr.`)) return;
+          const r = await api('POST', `/api/users/${u.id}/resetpw`);
+          prompt(`Neues Startpasswort fuer ${u.name} (per Discord weitergeben, danach unter "Passwort" aendern):`, r.tempPassword);
+        } }, 'Passwort')] : []),
         ...(u.name !== me.name ? [el('button', { class: 'danger', onclick: async () => {
           if (confirm(`${u.name} wirklich löschen?`)) { await api('POST', `/api/users/${u.id}/delete`); openUsers(); }
         } }, 'Löschen')] : []),

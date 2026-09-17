@@ -64,6 +64,7 @@ Manuell: neues Paket entpacken, `relay.json` daneben legen, `Setup.cmd` erneut a
 | Spiel bleibt schwarz | Spiel auf "Randloses Fenster" stellen und im Auswahlfenster ohne Hook wählen. Bei echtem Vollbild das Häkchen "Spielaufnahme (Hook)" setzen. |
 | "Verbindung fehlgeschlagen" beim Start | Stream-Key veraltet oder Server down. `Setup.cmd` nochmal ausführen (holt den aktuellen Key). |
 | Ich sehe "Warte auf Freigabe" | Jemand muss dich unter **Nutzer** freigeben. |
+| Passwort vergessen | Jemand aus der Gruppe klickt auf der Website unter **Nutzer** bei deinem Namen auf **Passwort** und schickt dir das Startpasswort. Danach unter "Passwort" ein eigenes setzen. |
 | Stream-Key ist jemandem bekannt geworden | Website → Mein Stream-Key → **Neuen Key erzeugen**, dann `Setup.cmd` neu ausführen. |
 | Beim Doppelklick auf "Stream starten" passiert nichts oder ein Fehlerfenster kommt | Einmal **Stream Stop** doppelklicken, 10 s warten, dann "Stream starten" erneut. Details stehen in `%LOCALAPPDATA%\stream-relay\launcher.log`. |
 | Auswahlfenster ist leer oder Fehler "Keine Verbindung zu OBS" | OBS einmal komplett beenden (Stream Stop), 10 s warten, nochmal. Bleibt es: `Setup.cmd` erneut ausführen. |

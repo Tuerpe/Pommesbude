@@ -64,6 +64,7 @@ Manually: unpack the new package, put `relay.json` next to it, run `Setup.cmd` a
 | Game picture stays black | Set the game to "borderless window" and pick it in the chooser without the hook. For true fullscreen tick "Spielaufnahme (Hook)". |
 | "Connection failed" on start | Stream key outdated or server down. Run `Setup.cmd` again (fetches the current key). |
 | I see "Waiting for approval" | Someone has to approve you under **Users**. |
+| Forgot my password | Someone from the group clicks **Passwort** next to your name under **Users** on the website and sends you the temporary password. Then set your own under "Passwort". |
 | Stream key leaked | Website → My stream key → **Generate new key**, then run `Setup.cmd` again. |
 | Nothing happens on double-click or an error window appears | Double-click **Stream Stop** once, wait 10 s, then "Stream starten" again. Details are in `%LOCALAPPDATA%\stream-relay\launcher.log`. |
 | Chooser window is empty or "No connection to OBS" | Quit OBS completely (Stream Stop), wait 10 s, try again. If it persists: run `Setup.cmd` again. |
