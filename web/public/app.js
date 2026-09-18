@@ -154,6 +154,8 @@
     }
   }
   function layout() {
+    // Im Vollbild nichts umhaengen: ein DOM-Move der Vollbild-Kachel wuerde den Vollbildmodus sofort beenden.
+    if (document.fullscreenElement) return;
     const grid = $('#grid'), strip = $('#strip');
     const bigOnes = [], smallOnes = [];
     for (const p of players.values()) (isBig(p) ? bigOnes : smallOnes).push(p);
@@ -178,7 +180,7 @@
   // Groesste 16:9-Kachelgroesse, mit der n Kacheln in die Rasterflaeche passen
   function fitGrid(n) {
     const grid = $('#grid'), area = $('#grid-area');
-    if (!n) return;
+    if (!n || document.fullscreenElement) return;
     const gap = 10, W = area.clientWidth, H = area.clientHeight;
     let best = { cols: 1, w: 0 };
     for (let cols = 1; cols <= n; cols++) {
@@ -192,6 +194,7 @@
     grid.style.setProperty('--tile-h', h + 'px');
   }
   window.addEventListener('resize', layout);
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) layout(); });
   new ResizeObserver(() => fitGrid([...players.values()].filter(isBig).length)).observe($('#grid-area'));
 
   // Trennbalken: Hoehe der Leiste per Ziehen (Maus und Touch), Doppelklick = Standard
