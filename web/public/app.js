@@ -247,11 +247,11 @@
 
   // Drag & Drop: Kacheln zwischen Raster und Leiste
   let dragKey = null;
-  for (const zoneId of ['grid', 'strip']) {
+  for (const zoneId of ['grid-area', 'strip']) {
     const zone = $('#' + zoneId);
     zone.addEventListener('dragover', (e) => { if (dragKey) { e.preventDefault(); zone.classList.add('drop'); } });
     zone.addEventListener('dragleave', () => zone.classList.remove('drop'));
-    zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('drop'); if (dragKey) moveTo(dragKey, zoneId === 'grid'); dragKey = null; });
+    zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('drop'); if (dragKey) moveTo(dragKey, zoneId === 'grid-area'); dragKey = null; });
   }
 
   // ---------------------------------------------------------------- WHEP-Player
@@ -264,18 +264,25 @@
       this.retry = null;
       this.video = el('video', { autoplay: '', muted: '', playsinline: '' });
       this.video.muted = true;
-      this.video.addEventListener('dblclick', () => this.tile.requestFullscreen?.());
+      this.video.addEventListener('dblclick', () => this.toggleFullscreen());
+      this.fsBtn = el('button', { title: 'Vollbild', onclick: (e) => { e.stopPropagation(); this.toggleFullscreen(); } }, '⛶');
       this.audioBtn = el('button', { title: 'Ton', onclick: (e) => { e.stopPropagation(); setAudio(this.key); } }, '🔇');
       this.moveBtn = el('button', { title: 'Verschieben', onclick: (e) => { e.stopPropagation(); moveTo(this.key, this.tile.classList.contains('small')); } }, '⬇');
       this.focusBtn = el('button', { title: 'Nur dieses gross', onclick: (e) => { e.stopPropagation(); toggleFocus(this.key); } }, '⤢');
       this.state = el('span', { class: 'state' }, 'verbinde…');
       const badge = item.kind === 'cam' ? el('span', { class: 'badge-cam' }, '🎥') : el('span', { class: 'live' }, 'LIVE');
       this.tile = el('div', { class: 'tile' + (item.kind === 'cam' ? ' cam' : ''), draggable: 'true' }, this.video,
-        el('div', { class: 'bar' }, el('span', { class: 'name' }, item.name), badge, this.state, this.focusBtn, this.moveBtn, ...(item.kind === 'cam' ? [] : [this.audioBtn])));
+        el('div', { class: 'bar' }, el('span', { class: 'name' }, item.name), badge, this.state, this.fsBtn, this.focusBtn, this.moveBtn, ...(item.kind === 'cam' ? [] : [this.audioBtn])));
+      // Eigene Kamera wie ein Spiegel anzeigen (nur lokal; gesendet wird unverspiegelt)
+      if (item.kind === 'cam' && me && item.name === me.name) this.tile.classList.add('mirror');
       this.tile.addEventListener('dragstart', (e) => { dragKey = this.key; e.dataTransfer.effectAllowed = 'move'; this.tile.classList.add('dragging'); });
       this.tile.addEventListener('dragend', () => { this.tile.classList.remove('dragging'); dragKey = null; });
       (isBig(this) ? $('#grid') : $('#strip')).append(this.tile);
       this.connect();
+    }
+    toggleFullscreen() {
+      if (document.fullscreenElement === this.tile) document.exitFullscreen?.();
+      else this.tile.requestFullscreen?.().catch(() => {});
     }
     updateButtons() {
       const small = this.tile.classList.contains('small');

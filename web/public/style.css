@@ -70,7 +70,7 @@ main { flex: 1 1 auto; min-height: 0; padding: 10px 12px; display: flex; flex-di
 .splitter span { width: 60px; height: 4px; border-radius: 2px; background: var(--border); }
 .splitter:hover span, .splitter.active span { background: var(--accent); }
 .strip-wrap { flex: 0 0 var(--strip-h); padding: 8px; background: var(--bg2); border-radius: 10px; box-sizing: border-box; min-height: 0; }
-.strip { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; height: 100%; align-items: center; }
+.strip { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; height: 100%; align-items: center; justify-content: safe center; }
 .strip-empty { color: var(--fg2); font-size: 13px; padding: 12px; pointer-events: none; }
 .strip .tile { flex: 0 0 auto; height: 100%; aspect-ratio: 16/9; }
 .strip .tile .bar { padding: 3px 6px; font-size: 12px; gap: 4px; }
@@ -82,6 +82,12 @@ main { flex: 1 1 auto; min-height: 0; padding: 10px 12px; display: flex; flex-di
 .tile.dragging { opacity: .4; }
 .grid.drop, .strip.drop { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: 10px; }
 .grid:empty { display: none; }
+.grid-area.drop { outline: 2px dashed var(--accent); outline-offset: -4px; border-radius: 10px; }
+/* Vollbild: Kachel fuellt den Bildschirm, Bar bleibt bedienbar */
+.tile:fullscreen { border-radius: 0; width: 100vw; height: 100vh; aspect-ratio: auto; background: #000; }
+.tile:fullscreen video { width: 100%; height: 100%; object-fit: contain; }
+/* Eigene Kamera gespiegelt anzeigen */
+.tile.mirror video { transform: scaleX(-1); }
 body.resizing { user-select: none; cursor: row-resize; }
 .tile .bar button.on { background: var(--live); }
 .badge-cam { font-size: 13px; }
