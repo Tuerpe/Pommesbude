@@ -144,9 +144,40 @@ function Start-Instance([string]$id) {
 }
 function Stop-Instance([string]$id) {
     $profile = if ($id -eq 'cam') { 'StreamRelayCam' } else { 'StreamRelay' }
-    if (Obs-Connected $id) { try { if ((Obs 'GetStreamStatus' @{} $id).outputActive) { Obs 'StopStream' @{} $id | Out-Null; Start-Sleep 1 } } catch {}; Ws-Close $id }
+    # 1) Stream stoppen und warten, bis der Output wirklich aus ist (sonst haengt das Schliessen am auslaufenden Output)
+    if (Obs-Connected $id) {
+        try {
+            if ((Obs 'GetStreamStatus' @{} $id).outputActive) {
+                Obs 'StopStream' @{} $id | Out-Null
+                $sw = [Diagnostics.Stopwatch]::StartNew()
+                while ($sw.Elapsed.TotalSeconds -lt 5 -and (Obs 'GetStreamStatus' @{} $id).outputActive) { Start-Sleep -Milliseconds 200 }
+            }
+        } catch {}
+        Ws-Close $id
+    }
     $proc = Find-Instance $profile
-    if ($proc) { & "$env:SystemRoot\System32\taskkill.exe" /PID $proc.ProcessId | Out-Null; Log "OBS ($id) beendet" }
+    if (-not $proc) { return }
+    $procId = $proc.ProcessId
+    # 2) Sauber schliessen (WM_CLOSE) und kurz warten. Die Kamera-Instanz ignoriert das Schliessen oft,
+    #    deshalb nach 5 s erzwingen; die Absturz-Markierung raeumt Clear-ObsSentinel danach weg.
+    & "$env:SystemRoot\System32\taskkill.exe" /PID $procId 2>&1 | Out-Null
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    while ((Get-Process -Id $procId -ErrorAction SilentlyContinue) -and $sw.Elapsed.TotalSeconds -lt 5) { Start-Sleep -Milliseconds 200 }
+    if (Get-Process -Id $procId -ErrorAction SilentlyContinue) {
+        # 3) Letzter Ausweg: erzwingen. Damit OBS beim naechsten Start nicht nach dem abgesicherten Modus fragt,
+        #    entfernt Clear-ObsSentinel die Absturz-Markierung, sobald keine OBS-Instanz mehr laeuft.
+        Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+        Start-Sleep 1
+        $script:forcedKill = $true
+        Log "OBS ($id) reagierte nicht auf Schliessen, erzwungen beendet"
+    } else { Log "OBS ($id) beendet" }
+}
+function Clear-ObsSentinel {
+    if (-not $script:forcedKill) { return }
+    if (Get-Process obs64 -ErrorAction SilentlyContinue) { return }
+    $dir = Join-Path $obsCfg '.sentinel'
+    if (Test-Path $dir) { Get-ChildItem $dir -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue; Log 'Absturz-Markierung entfernt' }
+    $script:forcedKill = $false
 }
 
 # ---------------------------------------------------------------- Stop
@@ -157,7 +188,13 @@ if ($Stop) {
         Stop-Instance $id
     }
     # Rest ohne Profil-Kennung (z. B. von Hand gestartetes OBS) und andere Launcher-Instanzen (LIVE-Fenster)
-    if (Get-Process obs64 -ErrorAction SilentlyContinue) { & "$env:SystemRoot\System32\taskkill.exe" /IM obs64.exe | Out-Null }
+    if (Get-Process obs64 -ErrorAction SilentlyContinue) {
+        & "$env:SystemRoot\System32\taskkill.exe" /IM obs64.exe 2>&1 | Out-Null
+        $sw = [Diagnostics.Stopwatch]::StartNew()
+        while ((Get-Process obs64 -ErrorAction SilentlyContinue) -and $sw.Elapsed.TotalSeconds -lt 5) { Start-Sleep -Milliseconds 200 }
+        if (Get-Process obs64 -ErrorAction SilentlyContinue) { Get-Process obs64 | Stop-Process -Force -ErrorAction SilentlyContinue; $script:forcedKill = $true; Start-Sleep 1 }
+    }
+    Clear-ObsSentinel
     Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
         Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*stream.ps1*' -and $_.CommandLine -notlike '*-Stop*' } |
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
@@ -487,7 +524,9 @@ $bCam.Add_Click({
     } catch { Show-Box("$_", 'Stream', 'OK', 'Error') | Out-Null }
 })
 $bStop.Add_Click({
-    Stop-Instance 'main'; Stop-Instance 'cam'
+    $timer.Stop(); $bStop.Enabled = $false; $bSwitch.Enabled = $false; $bCam.Enabled = $false
+    $lbl.Text = 'Beende Stream und OBS ...'; $lbl.ForeColor = [Drawing.Color]::FromArgb(240, 178, 50); $live.Refresh()
+    Stop-Instance 'main'; Stop-Instance 'cam'; Clear-ObsSentinel
     Log 'Stream beendet, OBS geschlossen'
     $live.Close()
 })
