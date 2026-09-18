@@ -524,8 +524,8 @@ $bCam.Add_Click({
     } catch { Show-Box("$_", 'Stream', 'OK', 'Error') | Out-Null }
 })
 $bStop.Add_Click({
-    $timer.Stop(); $bStop.Enabled = $false; $bSwitch.Enabled = $false; $bCam.Enabled = $false
-    $lbl.Text = 'Beende Stream und OBS ...'; $lbl.ForeColor = [Drawing.Color]::FromArgb(240, 178, 50); $live.Refresh()
+    # LIVE-Fenster sofort weg, OBS wird danach im Hintergrund beendet
+    $timer.Stop(); $live.Hide()
     Stop-Instance 'main'; Stop-Instance 'cam'; Clear-ObsSentinel
     Log 'Stream beendet, OBS geschlossen'
     $live.Close()
