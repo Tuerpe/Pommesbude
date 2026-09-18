@@ -17,6 +17,13 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
+# Dialoge immer im Vordergrund (der Launcher hat kein eigenes Hauptfenster, sonst landen sie hinter Spielen/Browser)
+function Show-Box($text, $title, $buttons, $icon) {
+    if ($text -is [array]) { $icon = $text[3]; $buttons = $text[2]; $title = $text[1]; $text = $text[0] }   # Aufruf im Stil Show-Box(a, b, c, d)
+    $o = New-Object Windows.Forms.Form; $o.TopMost = $true; $o.ShowInTaskbar = $false; $o.StartPosition = 'CenterScreen'; $o.Size = New-Object Drawing.Size(1, 1); $o.Opacity = 0
+    $o.Show(); $o.Activate()
+    try { return [System.Windows.Forms.MessageBox]::Show([System.Windows.Forms.IWin32Window]$o, [string]$text, [string]$title, [System.Windows.Forms.MessageBoxButtons]$buttons, [System.Windows.Forms.MessageBoxIcon]$icon) } finally { $o.Close(); $o.Dispose() }
+}
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 # Wird das Skript aus dem Paketordner statt ueber die Desktop-Verknuepfung gestartet, die installierte Konfiguration nutzen.
 $installDir = Join-Path $env:LOCALAPPDATA 'stream-relay'
@@ -31,13 +38,6 @@ $obsExe = $cfg.obsExe
 $obsBin = Split-Path -Parent $obsExe
 $obsCfg = Join-Path $env:APPDATA 'obs-studio'
 $log = Join-Path $here 'launcher.log'
-# Dialoge immer im Vordergrund (der Launcher hat kein eigenes Hauptfenster, sonst landen sie hinter Spielen/Browser)
-function Show-Box($text, $title, $buttons, $icon) {
-    if ($text -is [array]) { $icon = $text[3]; $buttons = $text[2]; $title = $text[1]; $text = $text[0] }   # Aufruf im Stil Show-Box(a, b, c, d)
-    $o = New-Object Windows.Forms.Form; $o.TopMost = $true; $o.ShowInTaskbar = $false; $o.StartPosition = 'CenterScreen'; $o.Size = New-Object Drawing.Size(1, 1); $o.Opacity = 0
-    $o.Show(); $o.Activate()
-    try { return [System.Windows.Forms.MessageBox]::Show([System.Windows.Forms.IWin32Window]$o, [string]$text, [string]$title, [System.Windows.Forms.MessageBoxButtons]$buttons, [System.Windows.Forms.MessageBoxIcon]$icon) } finally { $o.Close(); $o.Dispose() }
-}
 function Log($m) { Add-Content -Path $log -Value ("{0} {1}" -f (Get-Date -Format 'HH:mm:ss.fff'), $m) -Encoding UTF8 }
 function Fail($m) { Log "FEHLER: $m"; Show-Box($m, 'Stream', 'OK', 'Error') | Out-Null; exit 1 }
 function Save-Cfg { $cfg | ConvertTo-Json | Set-Content $cfgPath -Encoding UTF8 }
@@ -386,6 +386,15 @@ function Start-Cam($camera) {
         while ($sw.Elapsed.TotalSeconds -lt 15) { Start-Sleep -Milliseconds 500; if ((Obs 'GetStreamStatus' @{} 'cam').outputActive) { break } }
         if (-not (Obs 'GetStreamStatus' @{} 'cam').outputActive) { throw 'OBS (Kamera) meldet nach 15 s keinen aktiven Stream.' }
     }
+    # Unverspiegelt senden (aeltere Szenensammlungen hatten scale.x = -1); die eigene Kachel spiegelt die Website lokal.
+    try {
+        $scn = (Obs 'GetSceneList' @{} 'cam').currentProgramSceneName
+        $item = (Obs 'GetSceneItemList' @{ sceneName = $scn } 'cam').sceneItems | Where-Object { $_.sourceName -eq 'Kamera' } | Select-Object -First 1
+        if ($item) {
+            $tr = (Obs 'GetSceneItemTransform' @{ sceneName = $scn; sceneItemId = $item.sceneItemId } 'cam').sceneItemTransform
+            if ($tr.scaleX -lt 0) { Obs 'SetSceneItemTransform' @{ sceneName = $scn; sceneItemId = $item.sceneItemId; sceneItemTransform = @{ scaleX = [math]::Abs($tr.scaleX); scaleY = $tr.scaleY } } 'cam' | Out-Null; Log 'Kamera-Spiegelung entfernt' }
+        }
+    } catch { Log "Spiegelungs-Check uebersprungen: $_" }
     $script:camStreaming = $true
     $cfg.lastCamera = $camera.Value; $cfg.lastCamOn = $true; Save-Cfg
     Log "Kamera laeuft: $($camera.Label)"
