@@ -38,30 +38,39 @@ if ! grep -q '^SITE_NAME=' .env; then
 fi
 grep -q '^HOOK_SUBNET=' .env || echo "HOOK_SUBNET=172.30.0.0/24" >> .env
 grep -q '^SESSION_SECRET=' .env || echo "SESSION_SECRET=$(openssl rand -hex 32)" >> .env
+# Voice (Mumble): Server-Passwort (steht spaeter in der mumble://-URL, daher nur Buchstaben/Ziffern) und Ice-Secret.
+grep -q '^MUMBLE_PASSWORD=' .env || echo "MUMBLE_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 20)" >> .env
+grep -q '^MUMBLE_ICE_SECRET=' .env || echo "MUMBLE_ICE_SECRET=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 32)" >> .env
 # shellcheck disable=SC1091
 source .env
 sed -i "s|__PUBLIC_IP__|${PUBLIC_IP}|" mediamtx.yml
 
-# --- 3. Firewall (ufw), falls installiert und noch inaktiv ---------------------
-if command -v ufw >/dev/null 2>&1 && ! ufw status | grep -q "^Status: active"; then
-  echo ">> Aktiviere ufw (22, 80, 443/tcp, 8189/udp) ..."
-  ufw default deny incoming >/dev/null
-  ufw default allow outgoing >/dev/null
-  ufw allow 22/tcp >/dev/null
-  ufw allow 80/tcp >/dev/null
-  ufw allow 443/tcp >/dev/null
-  ufw allow 8189/udp >/dev/null
-  ufw --force enable
+# --- 3. Firewall (ufw), falls installiert -------------------------------------------
+if command -v ufw >/dev/null 2>&1; then
+  if ! ufw status | grep -q "^Status: active"; then
+    echo ">> Aktiviere ufw (22, 80, 443/tcp, 8189/udp, 64738/tcp+udp) ..."
+    ufw default deny incoming >/dev/null
+    ufw default allow outgoing >/dev/null
+    ufw allow 22/tcp >/dev/null
+    ufw allow 80/tcp >/dev/null
+    ufw allow 443/tcp >/dev/null
+    ufw allow 8189/udp >/dev/null
+    ufw --force enable
+  fi
+  # Voice-Port, auch bei bestehender Installation nachziehen (idempotent).
+  ufw allow 64738/tcp >/dev/null
+  ufw allow 64738/udp >/dev/null
 fi
 
 # --- 4. Stack bauen und starten ----------------------------------------------------
 # Erwartete Struktur: dieses Skript liegt in <projekt>/server/, daneben <projekt>/web, client, docs, VERSION (Build-Kontext ist <projekt>).
 echo ">> Baue Website-Image (inkl. Client-Paket) und starte Container ..."
-docker compose pull -q mediamtx caddy
-docker compose build -q web
+docker compose pull -q mediamtx caddy mumble
+docker compose build -q web mumble-ice
 docker compose up -d --remove-orphans
 sleep 3
 docker compose ps
 echo
 echo ">> Fertig. Website: https://${DOMAIN}/  (erster registrierter Nutzer ist automatisch freigegeben)"
-echo ">> Logs:  docker compose logs -f web mediamtx"
+echo ">> Voice: mumble://${DOMAIN}:64738 (Passwort MUMBLE_PASSWORD in .env; Website und Client-Setup verteilen es automatisch)"
+echo ">> Logs:  docker compose logs -f web mediamtx mumble"

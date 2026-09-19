@@ -1,4 +1,5 @@
-// Stream-Relay Website: Login/Registrierung/Freigabe, Auth-Hook fuer MediaMTX, Live-Liste, statische Raster-Seite.
+// Stream-Relay Website: Login/Registrierung/Freigabe, Auth-Hook fuer MediaMTX, Live-Liste, Voice-Praesenz (Mumble),
+// Gruppen-Chat (SSE), statische Raster-Seite.
 import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -7,6 +8,7 @@ import { randomBytes } from 'node:crypto';
 import {
   createUser, getUserByName, getUserById, listUsers, approvedNames, approveUser, deleteUser, rotateStreamKey, setPassword,
   verifyPassword, createSession, userForSession, destroySession, viewerTokenFor, userForViewerToken, SESSION_TTL,
+  addMessage, messagesAfter,
 } from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -15,6 +17,12 @@ const MEDIAMTX_API = process.env.MEDIAMTX_API || 'http://mediamtx:9997';
 const PUBLIC_DOMAIN = process.env.DOMAIN || 'localhost';
 const HOOK_SUBNET = process.env.HOOK_SUBNET || '172.30.0.0/24';
 const SITE_NAME = process.env.SITE_NAME || 'Stream Relay';
+// Voice (Mumble): Host/Passwort kommen aus .env (MUMBLE_HOST = DOMAIN, MUMBLE_PASSWORD), Praesenz vom Sidecar mumble-ice.
+const MUMBLE_HOST = process.env.MUMBLE_HOST || '';
+const MUMBLE_PASSWORD = process.env.MUMBLE_PASSWORD || '';
+const MUMBLE_PORT = Number(process.env.MUMBLE_PORT || 64738);
+const MUMBLE_ICE_URL = process.env.MUMBLE_ICE_URL || 'http://mumble:6503';
+const VOICE_ENABLED = !!(MUMBLE_HOST && MUMBLE_PASSWORD);
 // Client-Version = Inhalt der Datei VERSION (beim Docker-Build kopiert). MIN_CLIENT_VERSION anheben, wenn aeltere Launcher
 // nicht mehr mit Server/Hook/Szenen zusammenarbeiten -> Launcher erzwingt dann das Update.
 const CLIENT_VERSION = (() => { try { return readFileSync(join(__dirname, 'VERSION'), 'utf8').trim(); } catch { return '0.0.0'; } })();
@@ -70,7 +78,7 @@ function noteLoginFail(ip) {
 // --- Oeffentliche Konfiguration (Branding, Versionen, Client-Download) -------------------------
 app.get('/api/config', (_req, res) => {
   const hasZip = existsSync(join(__dirname, 'public', 'client', 'pommesbude-client.zip'));
-  res.json({ siteName: SITE_NAME, clientVersion: CLIENT_VERSION, minClientVersion: MIN_CLIENT_VERSION, clientUrl: hasZip ? CLIENT_ZIP : null });
+  res.json({ siteName: SITE_NAME, clientVersion: CLIENT_VERSION, minClientVersion: MIN_CLIENT_VERSION, clientUrl: hasZip ? CLIENT_ZIP : null, voice: VOICE_ENABLED });
 });
 
 // --- Auth-Middleware ---------------------------------------------------------------
@@ -143,13 +151,23 @@ app.post('/api/logout', (req, res) => {
   res.status(204).end();
 });
 
+// mumble://name:passwort@host:port/?title=... verbindet den Mumble-Client direkt (laeuft er schon, uebernimmt die laufende Instanz).
+const voiceUrlFor = (name) =>
+  `mumble://${encodeURIComponent(name)}:${encodeURIComponent(MUMBLE_PASSWORD)}@${MUMBLE_HOST}:${MUMBLE_PORT}/?title=${encodeURIComponent(SITE_NAME)}`;
+
 app.get('/api/me', requireLogin, (req, res) => {
   const u = req.user;
+  const approved = u.status === 'approved';
   res.json({
     ...publicUser(u),
-    streamKey: u.status === 'approved' ? u.stream_key : null,
+    streamKey: approved ? u.stream_key : null,
     whipUrl: `https://${PUBLIC_DOMAIN}/${u.name}/whip`,
-    pendingCount: u.status === 'approved' ? listUsers().filter((x) => x.status === 'pending').length : 0,
+    pendingCount: approved ? listUsers().filter((x) => x.status === 'pending').length : 0,
+    voice: VOICE_ENABLED,
+    voiceUrl: approved && VOICE_ENABLED ? voiceUrlFor(u.name) : null,
+    voiceHost: approved && VOICE_ENABLED ? MUMBLE_HOST : null,
+    voicePort: approved && VOICE_ENABLED ? MUMBLE_PORT : null,
+    voicePassword: approved && VOICE_ENABLED ? MUMBLE_PASSWORD : null,
   });
 });
 
@@ -214,6 +232,65 @@ async function livePaths() {
   return items;
 }
 
+// --- Voice-Praesenz (wer ist im Mumble) ueber den Sidecar mumble-ice ------------------------------
+let voiceCache = { at: 0, users: [], ok: false };
+async function voiceUsers() {
+  if (!VOICE_ENABLED) return voiceCache;
+  if (Date.now() - voiceCache.at < 3000) return voiceCache;
+  try {
+    const r = await fetch(`${MUMBLE_ICE_URL}/users`, { signal: AbortSignal.timeout(2500) });
+    const users = r.ok ? await r.json() : [];
+    voiceCache = { at: Date.now(), users: Array.isArray(users) ? users : [], ok: r.ok };
+  } catch (e) {
+    voiceCache = { at: Date.now(), users: [], ok: false };
+  }
+  return voiceCache;
+}
+app.get('/api/voice', requireLogin, requireApproved, async (_req, res) => {
+  const v = await voiceUsers();
+  res.json({ enabled: VOICE_ENABLED, ok: v.ok, users: v.users });
+});
+
+// --- Gruppen-Chat: Verlauf, Senden, Live-Updates per Server-Sent Events ---------------------------------
+const sseClients = new Set();
+function sseBroadcast(event, data) {
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const c of sseClients) { try { c.write(payload); } catch { sseClients.delete(c); } }
+}
+app.get('/api/chat', requireLogin, requireApproved, (req, res) => {
+  const after = Number(req.query.after || 0);
+  res.json({ messages: messagesAfter(after > 0 ? after : 0, 200) });
+});
+const chatRate = new Map();   // userId -> Zeitstempel der letzten Nachrichten (max 5 in 5 s)
+app.post('/api/chat', requireLogin, requireApproved, (req, res) => {
+  const text = String(req.body?.text || '').replace(/\r\n?/g, '\n').trim();
+  if (!text || text.length > 2000) return res.status(400).json({ error: 'bad_text' });
+  const t = Date.now();
+  const recent = (chatRate.get(req.user.id) || []).filter((x) => t - x < 5000);
+  if (recent.length >= 5) return res.status(429).json({ error: 'too_fast' });
+  recent.push(t); chatRate.set(req.user.id, recent);
+  const m = addMessage(req.user.id, text);
+  sseBroadcast('message', m);
+  res.status(201).json(m);
+});
+app.get('/api/chat/stream', requireLogin, requireApproved, (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no',
+  });
+  res.write('retry: 3000\n\n');
+  sseClients.add(res);
+  const hb = setInterval(() => { try { res.write(': hb\n\n'); } catch {} }, 25000);
+  req.on('close', () => { clearInterval(hb); sseClients.delete(res); });
+});
+// Praesenz-Aenderungen an alle SSE-Clients, solange jemand verbunden ist (alle 3 s beim Sidecar nachsehen).
+let lastVoiceSig = '';
+setInterval(async () => {
+  if (!VOICE_ENABLED || sseClients.size === 0) return;
+  const v = await voiceUsers();
+  const sig = JSON.stringify(v.users);
+  if (sig !== lastVoiceSig) { lastVoiceSig = sig; sseBroadcast('voice', { ok: v.ok, users: v.users }); }
+}, 3000).unref();
+
 app.get('/api/streams', requireLogin, requireApproved, async (req, res) => {
   const live = new Map((await livePaths()).map((p) => [p.name, p]));
   const streams = approvedNames().map((name) => {
@@ -224,7 +301,8 @@ app.get('/api/streams', requireLogin, requireApproved, async (req, res) => {
       camLive: !!c?.ready, camSince: c?.ready ? c.readyTime : null, camReaders: c?.readers ?? 0,
     };
   });
-  res.json({ streams, viewerToken: viewerTokenFor(req.user.id), me: req.user.name });
+  const v = await voiceUsers();
+  res.json({ streams, viewerToken: viewerTokenFor(req.user.id), me: req.user.name, voice: { enabled: VOICE_ENABLED, ok: v.ok, users: v.users } });
 });
 
 // --- Statische Seite ------------------------------------------------------------------
@@ -236,4 +314,4 @@ app.get(['/', '/index.html'], (_req, res) => { res.setHeader('Cache-Control', 'n
 app.use(express.static(join(__dirname, 'public'), { index: false, maxAge: 0, etag: true }));
 app.use((_req, res) => res.status(404).json({ error: 'not_found' }));
 
-app.listen(PORT, () => console.log(`[web] listening on :${PORT}, domain ${PUBLIC_DOMAIN}, site "${SITE_NAME}", client ${CLIENT_VERSION} (min ${MIN_CLIENT_VERSION}), hook subnet ${HOOK_SUBNET}`));
+app.listen(PORT, () => console.log(`[web] listening on :${PORT}, domain ${PUBLIC_DOMAIN}, site "${SITE_NAME}", client ${CLIENT_VERSION} (min ${MIN_CLIENT_VERSION}), hook subnet ${HOOK_SUBNET}, voice ${VOICE_ENABLED ? MUMBLE_HOST + ':' + MUMBLE_PORT : 'off'}`));

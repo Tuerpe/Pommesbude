@@ -67,10 +67,12 @@
     }
     $('#me-name').textContent = me.name;
     show('main');
+    $('#voice').classList.toggle('hidden', !me.voiceUrl);
     refreshStreams();
     pollTimer = setInterval(refreshStreams, 5000);
+    startChat();
   }
-  function stopPolling() { if (pollTimer) clearInterval(pollTimer); pollTimer = null; }
+  function stopPolling() { if (pollTimer) clearInterval(pollTimer); pollTimer = null; stopChat(); }
 
   // ---------------------------------------------------------------- Auth-Formulare
   for (const b of document.querySelectorAll('.tabs button')) {
@@ -130,8 +132,10 @@
     $('#empty').classList.toggle('hidden', shown.length > 0);
     $('#empty').textContent = own.length ? 'Nur du streamst gerade. Deine eigenen Streams werden nicht geladen, um Traffic zu sparen.' : 'Gerade streamt niemand.';
 
+    renderVoice(data.voice);
     const offline = data.streams.filter((s) => !s.live && !s.camLive);
-    const chips = offline.map((s) => el('span', { class: 'chip' }, s.name));
+    const chips = offline.map((s) => el('span', { class: 'chip', title: voiceNames.has(s.name) ? 'im Voice' : '' }, s.name,
+      ...(voiceNames.has(s.name) ? [el('span', { class: 'mic' }, '🎙')] : [])));
     if (own.length) {
       const what = own.map((i) => (i.kind === 'cam' ? 'Kamera' : 'Bildschirm')).join(' + ');
       chips.unshift(el('span', { class: 'chip own' }, `🔴 Du streamst gerade (${what}) `,
@@ -347,6 +351,145 @@
       this.tile.remove();
     }
   }
+
+  // ---------------------------------------------------------------- Voice (Mumble)
+  // Praesenz kommt mit /api/streams (alle 5 s) und per SSE-Event "voice" (bei Aenderung). Beitreten = mumble://-Link,
+  // den der Mumble-Client (vom Setup installiert) direkt oeffnet.
+  let voiceNames = new Set();
+  function renderVoice(v) {
+    if (!v || !v.enabled) { $('#voice').classList.add('hidden'); return; }
+    voiceNames = new Set(v.users.map((u) => u.name));
+    const list = $('#voice-list');
+    if (!v.ok) { list.replaceChildren(el('span', { class: 'muted' }, 'Voice-Server nicht erreichbar')); return; }
+    if (!v.users.length) { list.textContent = 'niemand im Voice'; return; }
+    const parts = [];
+    v.users.forEach((u, i) => {
+      if (i) parts.push(', ');
+      const t = u.deaf ? `${u.name} (taub)` : u.mute ? `${u.name} (stumm)` : u.name;
+      parts.push(el('b', { class: u.mute || u.deaf ? 'muted' : '', title: u.deaf ? 'hoert nichts' : u.mute ? 'Mikro aus' : '' }, t));
+    });
+    list.replaceChildren(...parts);
+    // Chips unten aktualisieren, ohne die ganze Liste neu zu laden
+    for (const c of document.querySelectorAll('#offline .chip:not(.own)')) {
+      const name = c.firstChild?.textContent || '';
+      const has = !!c.querySelector('.mic');
+      if (voiceNames.has(name) && !has) c.append(el('span', { class: 'mic' }, '🎙'));
+      if (!voiceNames.has(name) && has) c.querySelector('.mic').remove();
+    }
+  }
+  $('#btn-voice').addEventListener('click', () => {
+    if (!me?.voiceUrl) return;
+    window.location.href = me.voiceUrl;
+    const b = $('#btn-voice');
+    b.textContent = '🎙 Mumble wird geöffnet…';
+    b.title = 'Nichts passiert? Dann fehlt Mumble: Setup.cmd des Clients erneut ausführen (installiert es) oder "winget install Mumble.Mumble.Client".';
+    setTimeout(() => { b.textContent = '🎙 Voice beitreten'; }, 6000);
+  });
+
+  // ---------------------------------------------------------------- Gruppen-Chat
+  const CHAT_LS = 'pommesbude.chat';
+  let chatOpen = false;
+  try { chatOpen = localStorage.getItem(CHAT_LS) === '1'; } catch {}
+  let chatLastId = 0, chatUnread = 0, chatEs = null, chatPoll = null, chatLoaded = false;
+  const fmtTime = (ms) => {
+    const d = new Date(ms), today = new Date();
+    const hm = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    return d.toDateString() === today.toDateString() ? hm : `${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} ${hm}`;
+  };
+  // Text escapen, dann URLs anklickbar machen
+  function linkify(text) {
+    const frag = document.createDocumentFragment();
+    const re = /https?:\/\/[^\s<>"']+/g;
+    let last = 0, m;
+    while ((m = re.exec(text))) {
+      if (m.index > last) frag.append(text.slice(last, m.index));
+      let url = m[0], tail = '';
+      while (/[.,!?)]$/.test(url)) { tail = url.slice(-1) + tail; url = url.slice(0, -1); }
+      frag.append(el('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }, url));
+      if (tail) frag.append(tail);
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) frag.append(text.slice(last));
+    return frag;
+  }
+  function chatScrolledDown() { const b = $('#chat-msgs'); return b.scrollHeight - b.scrollTop - b.clientHeight < 40; }
+  function appendMessage(m, { scroll = true } = {}) {
+    if (m.id <= chatLastId) return;
+    chatLastId = m.id;
+    const box = $('#chat-msgs');
+    const atBottom = chatScrolledDown();
+    box.append(el('div', { class: 'msg' + (m.name === me?.name ? ' own' : '') },
+      el('span', { class: 'who' }, m.name), el('span', { class: 'time' }, fmtTime(m.at)),
+      el('div', { class: 'text' }, linkify(m.text))));
+    while (box.children.length > 500) box.firstChild.remove();
+    if (scroll && (atBottom || m.name === me?.name)) box.scrollTop = box.scrollHeight;
+    if (m.name !== me?.name && (!chatOpen || document.hidden)) { chatUnread++; updateChatBadge(); }
+  }
+  function updateChatBadge() {
+    const b = $('#chat-badge');
+    b.textContent = chatUnread > 99 ? '99+' : chatUnread;
+    b.classList.toggle('hidden', chatUnread === 0);
+    document.title = (chatUnread ? `(${chatUnread}) ` : '') + document.title.replace(/^\(\d+\+?\) /, '');
+  }
+  function setChatOpen(open) {
+    chatOpen = open;
+    try { localStorage.setItem(CHAT_LS, open ? '1' : '0'); } catch {}
+    $('#chat').classList.toggle('hidden', !open);
+    $('#btn-chat').classList.toggle('active', open);
+    if (open) { chatUnread = 0; updateChatBadge(); const b = $('#chat-msgs'); b.scrollTop = b.scrollHeight; $('#chat-input').focus(); }
+    layout();
+  }
+  async function loadChat(after) {
+    try {
+      const r = await api('GET', `/api/chat?after=${after || 0}`);
+      const atStart = !after;
+      for (const m of r.messages) appendMessage(m, { scroll: false });
+      if (atStart || chatScrolledDown()) { const b = $('#chat-msgs'); b.scrollTop = b.scrollHeight; }
+      if (!chatLoaded && atStart) { chatLoaded = true; chatUnread = 0; updateChatBadge(); }   // alter Verlauf zaehlt nicht als ungelesen
+    } catch {}
+  }
+  function connectSse() {
+    if (chatEs) chatEs.close();
+    const es = (chatEs = new EventSource('/api/chat/stream'));
+    es.addEventListener('message', (e) => { try { appendMessage(JSON.parse(e.data)); } catch {} });
+    es.addEventListener('voice', (e) => { try { renderVoice({ enabled: true, ...JSON.parse(e.data) }); } catch {} });
+    es.onopen = () => { $('#chat-state').textContent = ''; loadChat(chatLastId); };   // Luecke waehrend Reconnect nachladen
+    es.onerror = () => { $('#chat-state').textContent = 'verbinde…'; };
+  }
+  async function startChat() {
+    setChatOpen(chatOpen);
+    await loadChat(0);
+    connectSse();
+    // Fallback, falls SSE (Proxy/Netz) nicht durchkommt: alle 5 s nachladen, solange die Verbindung nicht offen ist
+    chatPoll = setInterval(() => { if (!chatEs || chatEs.readyState !== 1) loadChat(chatLastId); }, 5000);
+  }
+  function stopChat() {
+    if (chatEs) { chatEs.close(); chatEs = null; }
+    if (chatPoll) { clearInterval(chatPoll); chatPoll = null; }
+    $('#chat-msgs').replaceChildren();
+    chatLastId = 0; chatUnread = 0; chatLoaded = false; updateChatBadge();
+  }
+  $('#btn-chat').addEventListener('click', () => setChatOpen(!chatOpen));
+  $('#chat-close').addEventListener('click', () => setChatOpen(false));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && chatOpen) { chatUnread = 0; updateChatBadge(); } });
+  const chatInput = $('#chat-input');
+  const autoGrow = () => { chatInput.style.height = 'auto'; chatInput.style.height = Math.min(140, chatInput.scrollHeight) + 'px'; };
+  chatInput.addEventListener('input', autoGrow);
+  chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#chat-form').requestSubmit(); } });
+  $('#chat-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = chatInput.value.trim();
+    if (!text) return;
+    chatInput.disabled = true;
+    try {
+      const m = await api('POST', '/api/chat', { text });
+      appendMessage(m);
+      chatInput.value = ''; autoGrow();
+    } catch (err) {
+      $('#chat-state').textContent = err.code === 'too_fast' ? 'Langsamer…' : 'Senden fehlgeschlagen';
+      setTimeout(() => { $('#chat-state').textContent = ''; }, 3000);
+    } finally { chatInput.disabled = false; chatInput.focus(); }
+  });
 
   // ---------------------------------------------------------------- Dialoge
   const dlgKey = $('#dlg-key');

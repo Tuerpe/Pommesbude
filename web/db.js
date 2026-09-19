@@ -30,6 +30,12 @@ db.exec(`
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     expires_at INTEGER NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS messages (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    text       TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
   CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
   CREATE INDEX IF NOT EXISTS idx_vtokens_user ON viewer_tokens(user_id);
 `);
@@ -116,6 +122,23 @@ export function viewerTokenFor(userId) {
   return token;
 }
 export const userForViewerToken = (token) => (token ? stmts.viewerTokenUser.get(token, now()) : undefined);
+
+// --- Gruppen-Chat --------------------------------------------------------------
+// Verlauf wird auf die letzten CHAT_KEEP Nachrichten begrenzt (einfacher Gruppen-Chat, kein Archiv).
+const CHAT_KEEP = 2000;
+const chat = {
+  insert: db.prepare('INSERT INTO messages (user_id, text, created_at) VALUES (?, ?, ?)'),
+  byId: db.prepare('SELECT m.id, m.text, m.created_at AS at, u.name FROM messages m JOIN users u ON u.id = m.user_id WHERE m.id = ?'),
+  last: db.prepare('SELECT * FROM (SELECT m.id, m.text, m.created_at AS at, u.name FROM messages m JOIN users u ON u.id = m.user_id ORDER BY m.id DESC LIMIT ?) ORDER BY id'),
+  after: db.prepare('SELECT m.id, m.text, m.created_at AS at, u.name FROM messages m JOIN users u ON u.id = m.user_id WHERE m.id > ? ORDER BY m.id LIMIT ?'),
+  trim: db.prepare('DELETE FROM messages WHERE id <= (SELECT id FROM messages ORDER BY id DESC LIMIT 1 OFFSET ?)'),
+};
+export function addMessage(userId, text) {
+  const r = chat.insert.run(userId, text, now());
+  if (Number(r.lastInsertRowid) % 100 === 0) chat.trim.run(CHAT_KEEP);
+  return chat.byId.get(r.lastInsertRowid);
+}
+export const messagesAfter = (afterId, limit = 200) => (afterId > 0 ? chat.after.all(afterId, limit) : chat.last.all(limit));
 
 // Aufraeumen alle 6h
 setInterval(() => {

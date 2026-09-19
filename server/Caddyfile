@@ -1,7 +1,9 @@
 # Caddy holt automatisch ein Let's-Encrypt-Zertifikat fuer $DOMAIN (HTTP-Challenge ueber Port 80).
 # DOMAIN kommt aus .env (z. B. stream.example.org).
 {$DOMAIN} {
-    encode gzip
+    # Server-Sent Events (Chat) nicht komprimieren: der Encoder wuerde sonst puffern und Events verzoegern.
+    @nosse not path /api/chat/stream
+    encode @nosse gzip
 
     # WHIP (OBS) und WHEP (Player) gehen an MediaMTX, alles andere an die Website.
     @media path_regexp ^/[a-z0-9_-]+/(whip|whep)(/.*)?$

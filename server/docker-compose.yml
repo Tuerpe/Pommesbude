@@ -29,10 +29,74 @@ services:
       MEDIAMTX_API: http://mediamtx:9997
       SITE_NAME: ${SITE_NAME:-Stream Relay}
       DB_PATH: /data/app.db
+      MUMBLE_ICE_URL: http://mumble:6503
+      MUMBLE_HOST: ${DOMAIN}
+      MUMBLE_PASSWORD: ${MUMBLE_PASSWORD}
     volumes:
       - web_data:/data
     networks:
       - relay
+
+  # Voice-Chat (Mumble). Nutzt Caddys Let's-Encrypt-Zertifikat, damit der Client keine Zertifikatswarnung zeigt:
+  # beim Start wird es aus dem caddy_data-Volume nach /data/tls kopiert, spaeter haelt mumble-ice es aktuell.
+  mumble:
+    image: mumblevoip/mumble-server:v1.6.870-4
+    container_name: mumble
+    restart: unless-stopped
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        C=/caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${DOMAIN}
+        if [ -f "$$C/${DOMAIN}.crt" ] && [ -f "$$C/${DOMAIN}.key" ]; then
+          mkdir -p /data/tls
+          cp -f "$$C/${DOMAIN}.crt" /data/tls/mumble.crt
+          cp -f "$$C/${DOMAIN}.key" /data/tls/mumble.key
+          chmod 600 /data/tls/mumble.*
+          echo "[mumble] TLS-Zertifikat von Caddy uebernommen"
+        else
+          echo "[mumble] WARNUNG: kein Caddy-Zertifikat unter $$C, Mumble nutzt ein selbstsigniertes"
+        fi
+        exec /entrypoint.sh /usr/bin/mumble-server
+    environment:
+      MUMBLE_CONFIG_SERVERPASSWORD: ${MUMBLE_PASSWORD}
+      MUMBLE_CONFIG_ICESECRETREAD: ${MUMBLE_ICE_SECRET}
+      MUMBLE_CONFIG_ICESECRETWRITE: ${MUMBLE_ICE_SECRET}
+      MUMBLE_CONFIG_WELCOMETEXT: "<br />Willkommen im Voice von ${SITE_NAME:-Stream Relay}.<br />"
+      MUMBLE_CONFIG_REGISTERNAME: ${SITE_NAME:-Stream Relay}
+      MUMBLE_CONFIG_USERS: 32
+      MUMBLE_CONFIG_ALLOWPING: "false"
+      MUMBLE_CONFIG_SSLCERT: /data/tls/mumble.crt
+      MUMBLE_CONFIG_SSLKEY: /data/tls/mumble.key
+      MUMBLE_CONFIG_BANDWIDTH: 558000
+      MUMBLE_CONFIG_OPUSTHRESHOLD: 0
+    ports:
+      - "64738:64738/tcp"
+      - "64738:64738/udp"
+    volumes:
+      - mumble_data:/data
+      - caddy_data:/caddy:ro
+    networks:
+      - relay
+
+  # Sidecar im Netz- und PID-Namespace von mumble: Praesenz per HTTP (mumble:6503, nur intern) und Zertifikatspflege.
+  mumble-ice:
+    build: ./mumble-ice
+    image: stream-relay-mumble-ice:local
+    container_name: mumble-ice
+    restart: unless-stopped
+    depends_on:
+      - mumble
+    network_mode: "service:mumble"
+    pid: "service:mumble"
+    environment:
+      ICE_SECRET: ${MUMBLE_ICE_SECRET}
+      CERT_SRC_CRT: /caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${DOMAIN}/${DOMAIN}.crt
+      CERT_SRC_KEY: /caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${DOMAIN}/${DOMAIN}.key
+    volumes:
+      - mumble_data:/data
+      - caddy_data:/caddy:ro
 
   caddy:
     image: caddy:2
@@ -64,3 +128,4 @@ volumes:
   caddy_data:
   caddy_config:
   web_data:
+  mumble_data:

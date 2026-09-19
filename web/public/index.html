@@ -46,7 +46,12 @@
     <header>
       <div class="brand">🍟 {{SITE_NAME}}</div>
       <div class="status" id="live-count"></div>
+      <div class="voice hidden" id="voice">
+        <button id="btn-voice" title="Mumble öffnen und dem Voice beitreten">🎙 Voice beitreten</button>
+        <span id="voice-list" class="voice-list"></span>
+      </div>
       <nav>
+        <button id="btn-chat" class="secondary" title="Gruppen-Chat ein-/ausblenden">💬 Chat <span id="chat-badge" class="badge hidden"></span></button>
         <button id="btn-key" class="secondary">Mein Stream-Key</button>
         <button id="btn-users" class="secondary">Nutzer <span id="pending-badge" class="badge hidden"></span></button>
         <button id="btn-pw" class="secondary">Passwort</button>
@@ -56,6 +61,7 @@
       </nav>
     </header>
 
+    <div class="body">
     <main>
       <div class="viewbar">
         <span class="viewlabel">Ansicht:</span>
@@ -76,6 +82,21 @@
       <div id="strip-wrap" class="strip-wrap hidden"><div id="strip" class="strip"><span id="strip-empty" class="strip-empty">Leiste ist leer. Kacheln hierher ziehen oder ⬇ auf einer Kachel drücken.</span></div></div>
       <div id="offline" class="offline"></div>
     </main>
+
+    <!-- Gruppen-Chat (rechts, ein-/ausklappbar) -->
+    <aside id="chat" class="chat hidden">
+      <div class="chat-head">
+        <span>💬 Chat</span>
+        <span id="chat-state" class="hint"></span>
+        <button id="chat-close" class="secondary" title="Chat ausblenden">✕</button>
+      </div>
+      <div id="chat-msgs" class="chat-msgs"></div>
+      <form id="chat-form" class="chat-form">
+        <textarea id="chat-input" rows="1" maxlength="2000" placeholder="Nachricht… (Enter sendet, Shift+Enter = neue Zeile)" autocomplete="off"></textarea>
+        <button type="submit" title="Senden">➤</button>
+      </form>
+    </aside>
+    </div>
   </section>
 
   <!-- Dialog: Stream-Key -->

@@ -1,5 +1,6 @@
 # Instanzdaten, nie ins Repo
 server/.env
+server/.env.*
 relay.json
 PRIVATE*.md
 # Laufzeit / Build
