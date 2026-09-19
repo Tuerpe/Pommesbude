@@ -42,6 +42,7 @@ Afterwards you have three desktop shortcuts: **Stream starten** (start), **Strea
    - *Ton von* (audio from): default is the audio of the chosen window. For screen streams pick the game here, otherwise the stream is silent.
    - *Spielaufnahme (Hook)*: only for games in true fullscreen. Borderless windows work without it.
    - *Kamera*: pick a webcam and tick "Kamera zusätzlich senden", then it runs as a separate 720p stream next to the picture. "Nur Kamera" in the list = webcam only, no screen.
+   - *Voice-Chat beitreten (Mumble)*: when ticked, Mumble starts along with the stream and joins the channel. If Mumble is already running it is left alone. The choice is remembered.
 3. A small **LIVE** window stays at the bottom right: **Wechseln** opens the chooser again (stream keeps running), **Kamera an/aus** toggles the webcam separately, **Stream beenden** stops everything.
 4. Alternatively: **Stream Stop** on the desktop. Do not kill OBS via Task Manager, otherwise OBS asks about "safe mode" on the next start.
 
@@ -54,7 +55,7 @@ Hotkeys while streaming (fixed OBS scenes): `Ctrl+Alt+1/2` = monitor 1/2 (pick t
 
 ## 5. Voice (Mumble)
 
-- **Join**: double-click **Voice** on the desktop, or click **🎙 Voice beitreten** at the top of the website, or **Voice** in the LIVE window. Mumble opens and is in the channel right away, no password, no prompts. If Mumble is already running, a second click just hands the address to it.
+- **Join**: tick "Voice-Chat beitreten" in the chooser of "Stream starten" (on by default), double-click **Voice** on the desktop, or click **🎙 Voice beitreten** at the top of the website, or **Voice** in the LIVE window. Mumble opens and is in the channel right away, no password, no prompts. If Mumble is already running, a second click just hands the address to it.
 - Who is in the voice chat is shown next to the button on the website (and as 🎙 on the grey name chips). *(stumm)* = mic off, *(taub)* = deafened.
 - **Voice activation** is preset (headsets). Prefer push-to-talk: in Mumble **Settings → Audio Input → Transmission: Push To Talk**, then set the key under **Shortcuts**.
 - Mute / deafen: the buttons at the top of Mumble (or set shortcuts there). Mumble minimises to the tray; closing the window quits it.

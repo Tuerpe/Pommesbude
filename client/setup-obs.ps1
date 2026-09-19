@@ -285,12 +285,12 @@ Write-Host "obs-websocket aktiviert (Port $wsPort)." -ForegroundColor Green
 # --- 6. Launcher installieren (inkl. Kopie des Setups fuer spaetere Updates) ------------
 New-Item -ItemType Directory -Force $launcherDir | Out-Null
 Copy-Item (Join-Path $here 'stream.ps1') (Join-Path $launcherDir 'stream.ps1') -Force
-$keep = @{ lastValue = ''; lastGameHook = $false; lastCamera = ''; lastCamOn = $false }
+$keep = @{ lastValue = ''; lastGameHook = $false; lastCamera = ''; lastCamOn = $false; lastVoiceOn = $true }
 if ($existingCfg) { foreach ($k in @($keep.Keys)) { if ($existingCfg.PSObject.Properties.Name -contains $k) { $keep[$k] = $existingCfg.$k } } }
 $launcherCfg = [ordered]@{
     version = $pkgVersion; obsExe = $obsExe; encoder = $Encoder; wsPort = $wsPort; wsPortCam = ($wsPort + 1); wsPassword = $wsPassword
     domain = $Domain; name = $Name; streamKey = $StreamKey; voiceUrl = $voiceUrl
-    lastValue = $keep.lastValue; lastGameHook = $keep.lastGameHook; lastCamera = $keep.lastCamera; lastCamOn = $keep.lastCamOn
+    lastValue = $keep.lastValue; lastGameHook = $keep.lastGameHook; lastCamera = $keep.lastCamera; lastCamOn = $keep.lastCamOn; lastVoiceOn = $keep.lastVoiceOn
 }
 [IO.File]::WriteAllText((Join-Path $launcherDir 'launcher.json'), ($launcherCfg | ConvertTo-Json), (New-Object Text.UTF8Encoding $false))
 

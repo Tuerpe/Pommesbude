@@ -42,6 +42,7 @@ Danach liegen auf dem Desktop: **Stream starten**, **Stream Stop** und **Voice**
    - *Ton von*: Standard ist der Ton des gewählten Fensters. Bei Bildschirm-Streams hier das Spiel wählen, sonst ist der Stream stumm.
    - *Spielaufnahme (Hook)*: nur für Spiele im echten Vollbild anhaken. Randlose Fenster gehen ohne.
    - *Kamera*: Webcam auswählen und "Kamera zusätzlich senden" anhaken, dann läuft sie als eigener 720p-Stream neben dem Bild. "Nur Kamera" in der Liste = nur die Webcam ohne Bildschirm.
+   - *Voice-Chat beitreten (Mumble)*: angehakt startet Mumble gleich mit und ist im Sprachkanal, bevor der Stream steht. Läuft Mumble schon, bleibt es unberührt. Die Wahl wird gemerkt.
 3. Unten rechts bleibt ein kleines **LIVE**-Fenster: **Wechseln** öffnet die Auswahl erneut (Stream läuft dabei weiter), **Kamera an/aus** schaltet die Webcam einzeln, **Stream beenden** stoppt alles.
 4. Alternativ: **Stream Stop** auf dem Desktop. Nicht über den Task-Manager abschießen, sonst fragt OBS beim nächsten Start nach dem "abgesicherten Modus".
 
@@ -54,7 +55,7 @@ Hotkeys im laufenden Stream (feste Szenen aus OBS): `Strg+Alt+1/2` = Monitor 1/2
 
 ## 5. Voice (Mumble)
 
-- **Beitreten**: Doppelklick auf **Voice** auf dem Desktop, oder auf der Website oben **🎙 Voice beitreten**, oder im LIVE-Fenster **Voice**. Mumble öffnet sich und ist sofort im Sprachkanal, kein Passwort, keine Rückfrage. Läuft Mumble schon, passiert beim zweiten Klick nichts Schlimmes.
+- **Beitreten**: Häkchen "Voice-Chat beitreten" im Auswahlfenster von "Stream starten" (Standard: an), Doppelklick auf **Voice** auf dem Desktop, oder auf der Website oben **🎙 Voice beitreten**, oder im LIVE-Fenster **Voice**. Mumble öffnet sich und ist sofort im Sprachkanal, kein Passwort, keine Rückfrage. Läuft Mumble schon, passiert beim zweiten Klick nichts Schlimmes.
 - Wer gerade im Voice ist, steht oben auf der Website neben dem Knopf (und als 🎙 an den grauen Namens-Chips). *(stumm)* = Mikro aus, *(taub)* = hört nichts.
 - **Sprachaktivierung** ist voreingestellt (Headset). Lieber Push-to-talk: in Mumble **Einstellungen → Audioeingabe → Übertragung: Push-to-Talk**, dann unter **Tastenkürzel** die Taste setzen.
 - Mikro stumm / Ton aus: die Knöpfe oben in Mumble (oder eigene Tastenkürzel dort setzen). Mumble minimiert sich ins Tray; Fenster schließen beendet es.

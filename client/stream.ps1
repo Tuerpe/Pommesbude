@@ -35,6 +35,8 @@ $cfg = Get-Content $cfgPath -Raw | ConvertFrom-Json
 foreach ($k in 'lastValue', 'lastGameHook', 'lastCamera', 'lastCamOn', 'wsPortCam') {
     if (-not ($cfg.PSObject.Properties.Name -contains $k)) { $cfg | Add-Member -NotePropertyName $k -NotePropertyValue $(if ($k -eq 'wsPortCam') { [int]$cfg.wsPort + 1 } elseif ($k -like 'last*On' -or $k -eq 'lastGameHook') { $false } else { '' }) }
 }
+# Voice beim Streamen: beim ersten Mal an, danach die letzte Wahl aus dem Auswahlfenster
+if (-not ($cfg.PSObject.Properties.Name -contains 'lastVoiceOn')) { $cfg | Add-Member -NotePropertyName lastVoiceOn -NotePropertyValue $true }
 $obsExe = $cfg.obsExe
 $obsBin = Split-Path -Parent $obsExe
 $obsCfg = Join-Path $env:APPDATA 'obs-studio'
@@ -389,10 +391,18 @@ function Show-Picker($monitors, $windows, $cameras, $last) {
     $f.Controls.Add($chkC)
     if (-not $cameras.Count) { $lblC.Text = 'Kamera: keine gefunden' }
 
-    $chk = New-Object Windows.Forms.CheckBox; $chk.Text = 'Spielaufnahme (Hook) statt Fensteraufnahme, fuer Vollbild-Spiele'; $chk.Location = New-Object Drawing.Point(12, 478); $chk.AutoSize = $true
+    $chk = New-Object Windows.Forms.CheckBox; $chk.Text = 'Spielaufnahme (Hook) statt Fensteraufnahme, fuer Vollbild-Spiele'; $chk.Location = New-Object Drawing.Point(12, 476); $chk.AutoSize = $true
     $chk.Checked = [bool]$cfg.lastGameHook; $f.Controls.Add($chk)
-    $hint = New-Object Windows.Forms.Label; $hint.Text = 'Discord-Voice wird nie mit uebertragen (kein Desktop-Audio). Hotkeys im Stream: Strg+Alt+1/2/3.'
-    $hint.Location = New-Object Drawing.Point(12, 508); $hint.AutoSize = $true; $hint.ForeColor = [Drawing.Color]::FromArgb(148, 155, 164); $f.Controls.Add($hint)
+    # Voice-Chat gleich mit starten (Mumble). Vorbelegt mit der letzten Wahl, beim ersten Mal an.
+    $mumble = Get-MumbleExe
+    $chkV = New-Object Windows.Forms.CheckBox; $chkV.Location = New-Object Drawing.Point(12, 504); $chkV.AutoSize = $true
+    if ($mumble) {
+        $chkV.Text = 'Voice-Chat beitreten (Mumble)' + $(if (Get-Process mumble -ErrorAction SilentlyContinue) { '  -  laeuft schon' } else { '' })
+        $chkV.Checked = [bool]$cfg.lastVoiceOn
+    } else { $chkV.Text = 'Voice-Chat: Mumble ist nicht installiert (Setup.cmd erneut ausfuehren)'; $chkV.Enabled = $false }
+    $f.Controls.Add($chkV)
+    $hint = New-Object Windows.Forms.Label; $hint.Text = 'Voice wird nie mit uebertragen (kein Desktop-Audio). Hotkeys im Stream: Strg+Alt+1/2/3.'
+    $hint.Location = New-Object Drawing.Point(12, 532); $hint.AutoSize = $true; $hint.ForeColor = [Drawing.Color]::FromArgb(148, 155, 164); $f.Controls.Add($hint)
 
     $ok = New-Object Windows.Forms.Button; $ok.Text = if ($streaming -or $camStreaming) { 'Wechseln' } else { 'Streamen' }; $ok.Location = New-Object Drawing.Point(452, 560); $ok.Size = New-Object Drawing.Size(140, 32)
     $ok.BackColor = [Drawing.Color]::FromArgb(88, 101, 242); $ok.ForeColor = [Drawing.Color]::White; $ok.FlatStyle = 'Flat'; $ok.DialogResult = 'OK'
@@ -408,7 +418,7 @@ function Show-Picker($monitors, $windows, $cameras, $last) {
     if ($cbC.SelectedIndex -gt 0) { $cam = $cameras | Where-Object { $_.Label -eq $cbC.SelectedItem } | Select-Object -First 1 }
     $sel = $lv.SelectedItems[0].Tag
     if ($sel.Kind -eq 'camonly' -and -not $cam) { Show-Box('Fuer "Nur Kamera" bitte eine Kamera auswaehlen.', 'Stream', 'OK', 'Warning') | Out-Null; return (Show-Picker $monitors $windows $cameras $last) }
-    return [pscustomobject]@{ Sel = $sel; Audio = $cbA.SelectedItem; GameHook = $chk.Checked; Camera = $cam; CamOn = ($chkC.Checked -and $cam) -or ($sel.Kind -eq 'camonly') }
+    return [pscustomobject]@{ Sel = $sel; Audio = $cbA.SelectedItem; GameHook = $chk.Checked; Camera = $cam; CamOn = ($chkC.Checked -and $cam) -or ($sel.Kind -eq 'camonly'); VoiceOn = ($chkV.Enabled -and $chkV.Checked) }
 }
 
 # ---------------------------------------------------------------- 4. Quellen setzen, Streams starten/stoppen
@@ -486,6 +496,10 @@ function Stop-Cam {
 
 # ---------------------------------------------------------------- 5. Auswahl anwenden
 function Apply-Choice($choice, $windows) {
+    # Voice zuerst, damit Mumble schon verbindet, waehrend OBS den Stream aufbaut. Laeuft Mumble bereits, nichts anfassen
+    # (die Adresse erneut zu uebergeben wuerde die Verbindung kurz trennen).
+    if (Get-MumbleExe) { $cfg | Add-Member -NotePropertyName lastVoiceOn -NotePropertyValue ([bool]$choice.VoiceOn) -Force; Save-Cfg }
+    if ($choice.VoiceOn -and -not (Get-Process mumble -ErrorAction SilentlyContinue)) { try { Start-Voice } catch { Log "Voice-Start fehlgeschlagen: $_" } }
     if ($choice.Sel.Kind -eq 'camonly') {
         Stop-MainStream
     } else {
