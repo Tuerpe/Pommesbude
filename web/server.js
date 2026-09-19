@@ -249,7 +249,7 @@ async function livePaths() {
 let voiceCache = { at: 0, users: [], ok: false };
 async function voiceUsers() {
   if (!VOICE_ENABLED) return voiceCache;
-  if (Date.now() - voiceCache.at < 3000) return voiceCache;
+  if (Date.now() - voiceCache.at < 400) return voiceCache;   // kurz, damit "spricht gerade" fluessig ankommt
   try {
     const r = await fetch(`${MUMBLE_ICE_URL}/users`, { signal: AbortSignal.timeout(2500) });
     const users = r.ok ? await r.json() : [];
@@ -262,6 +262,26 @@ async function voiceUsers() {
 app.get('/api/voice', requireLogin, requireApproved, async (_req, res) => {
   const v = await voiceUsers();
   res.json({ enabled: VOICE_ENABLED, ok: v.ok, users: v.users });
+});
+// Eigenes Mikro/Ton vom Browser aus schalten: Server-Mute/-Taub ueber den Sidecar (Ice setState), nur fuer den eigenen Namen.
+app.post('/api/voice/me', requireLogin, requireApproved, async (req, res) => {
+  if (!VOICE_ENABLED) return res.status(404).json({ error: 'voice_off' });
+  const body = {};
+  if (typeof req.body?.mute === 'boolean') body.mute = req.body.mute;
+  if (typeof req.body?.deaf === 'boolean') body.deaf = req.body.deaf;
+  if (!Object.keys(body).length) return res.status(400).json({ error: 'bad_request' });
+  try {
+    const r = await fetch(`${MUMBLE_ICE_URL}/users/${encodeURIComponent(req.user.name)}/state`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(2500),
+    });
+    if (r.status === 404) return res.status(409).json({ error: 'not_in_voice' });
+    if (!r.ok) return res.status(502).json({ error: 'voice_unavailable' });
+    voiceCache.at = 0;
+    const v = await voiceUsers();
+    res.json({ ok: true, users: v.users });
+  } catch {
+    res.status(502).json({ error: 'voice_unavailable' });
+  }
 });
 
 // --- Gruppen-Chat: Verlauf, Senden, Live-Updates per Server-Sent Events ---------------------------------
@@ -295,14 +315,14 @@ app.get('/api/chat/stream', requireLogin, requireApproved, (req, res) => {
   const hb = setInterval(() => { try { res.write(': hb\n\n'); } catch {} }, 25000);
   req.on('close', () => { clearInterval(hb); sseClients.delete(res); });
 });
-// Praesenz-Aenderungen an alle SSE-Clients, solange jemand verbunden ist (alle 3 s beim Sidecar nachsehen).
+// Praesenz-Aenderungen (auch "spricht gerade") an alle SSE-Clients, solange jemand verbunden ist (alle 500 ms beim Sidecar nachsehen).
 let lastVoiceSig = '';
 setInterval(async () => {
   if (!VOICE_ENABLED || sseClients.size === 0) return;
   const v = await voiceUsers();
   const sig = JSON.stringify(v.users);
   if (sig !== lastVoiceSig) { lastVoiceSig = sig; sseBroadcast('voice', { ok: v.ok, users: v.users }); }
-}, 3000).unref();
+}, 500).unref();
 
 app.get('/api/streams', requireLogin, requireApproved, async (req, res) => {
   const live = new Map((await livePaths()).map((p) => [p.name, p]));

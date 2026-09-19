@@ -42,12 +42,28 @@ nav { display: flex; align-items: center; gap: 8px; }
 .badge { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 12px; line-height: 18px; text-align: center; margin-left: 4px; }
 
 /* Voice-Praesenz im Header */
-.voice { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.voice button { padding: 6px 12px; font-size: 13px; background: var(--live); white-space: nowrap; }
-.voice-list { color: var(--fg2); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
-.voice-list b { color: var(--fg); font-weight: 600; }
-.voice-list .muted { color: var(--fg2); text-decoration: line-through; }
+.voice { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+.voice-join { padding: 6px 12px; font-size: 13px; background: var(--live); color: #fff; border-radius: 6px; text-decoration: none; white-space: nowrap; }
+.voice-join:hover { filter: brightness(1.1); }
+.voice-me { display: inline-flex; align-items: center; gap: 6px; }
+.voice-me button { padding: 5px 10px; font-size: 13px; white-space: nowrap; }
+.voice-me button.off { background: var(--danger); color: #fff; }
+.voice-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 6px; background: var(--bg3); font-size: 13px; white-space: nowrap; }
+.voice-list { display: inline-flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; color: var(--fg2); font-size: 13px; min-width: 0; }
+.voice-list .muted { color: var(--fg2); }
+.voice-hint { flex-basis: 100%; color: #f0b232; font-size: 12px; }
+/* Ein Nutzer im Voice: Punkt grau = da, gruen = spricht gerade */
+.vu { display: inline-flex; align-items: center; gap: 5px; color: var(--fg); font-weight: 600; white-space: nowrap; }
+.vu.muted { color: var(--fg2); font-weight: 400; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--fg2); flex: 0 0 auto; transition: background .1s, box-shadow .1s; }
+.vu.talking .dot, .voice-me.talking .dot, .chip.talking .dot { background: var(--live); box-shadow: 0 0 6px var(--live); }
+.vu.talking { color: var(--live); }
 .chip .mic { margin-left: 4px; }
+.chip.talking { outline: 2px solid var(--live); color: var(--fg); }
+.chip.vmuted .mic { opacity: .5; }
+.tile .vico { font-size: 12px; }
+.tile.talking .name { color: var(--live); }
+.tile.talking .vico { filter: drop-shadow(0 0 3px var(--live)); }
 
 /* Raster + Chat nebeneinander */
 #main { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }

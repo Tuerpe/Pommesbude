@@ -68,6 +68,7 @@
     $('#me-name').textContent = me.name;
     show('main');
     $('#voice').classList.toggle('hidden', !me.voiceUrl);
+    if (me.voiceUrl) $('#btn-voice').href = me.voiceUrl;
     refreshStreams();
     pollTimer = setInterval(refreshStreams, 5000);
     startChat();
@@ -132,16 +133,15 @@
     $('#empty').classList.toggle('hidden', shown.length > 0);
     $('#empty').textContent = own.length ? 'Nur du streamst gerade. Deine eigenen Streams werden nicht geladen, um Traffic zu sparen.' : 'Gerade streamt niemand.';
 
-    renderVoice(data.voice);
     const offline = data.streams.filter((s) => !s.live && !s.camLive);
-    const chips = offline.map((s) => el('span', { class: 'chip', title: voiceNames.has(s.name) ? 'im Voice' : '' }, s.name,
-      ...(voiceNames.has(s.name) ? [el('span', { class: 'mic' }, '🎙')] : [])));
+    const chips = offline.map((s) => el('span', { class: 'chip' }, s.name));
     if (own.length) {
       const what = own.map((i) => (i.kind === 'cam' ? 'Kamera' : 'Bildschirm')).join(' + ');
       chips.unshift(el('span', { class: 'chip own' }, `🔴 Du streamst gerade (${what}) `,
         el('button', { onclick: () => { showOwn = !showOwn; refreshStreams(); } }, showOwn ? 'Ausblenden' : 'Anzeigen')));
     }
     $('#offline').replaceChildren(...chips);
+    renderVoice(data.voice);   // nach den Chips, damit 🎙 und Sprech-Markierung gleich sitzen
     layout();
     try { const m = await api('GET', '/api/me'); $('#pending-badge').textContent = m.pendingCount; $('#pending-badge').classList.toggle('hidden', !m.pendingCount); } catch {}
   }
@@ -277,9 +277,10 @@
       this.moveBtn = el('button', { title: 'Verschieben', onclick: (e) => { e.stopPropagation(); moveTo(this.key, this.tile.classList.contains('small')); } }, '⬇');
       this.focusBtn = el('button', { title: 'Nur dieses gross', onclick: (e) => { e.stopPropagation(); toggleFocus(this.key); } }, '⤢');
       this.state = el('span', { class: 'state' }, 'verbinde…');
+      this.voiceIco = el('span', { class: 'vico' });
       const badge = item.kind === 'cam' ? el('span', { class: 'badge-cam' }, '🎥') : el('span', { class: 'live' }, 'LIVE');
       this.tile = el('div', { class: 'tile' + (item.kind === 'cam' ? ' cam' : ''), draggable: 'true' }, this.video,
-        el('div', { class: 'bar' }, el('span', { class: 'name' }, item.name), badge, this.state, this.fsBtn, this.focusBtn, this.moveBtn, ...(item.kind === 'cam' ? [] : [this.audioBtn])));
+        el('div', { class: 'bar' }, el('span', { class: 'name' }, item.name), this.voiceIco, badge, this.state, this.fsBtn, this.focusBtn, this.moveBtn, ...(item.kind === 'cam' ? [] : [this.audioBtn])));
       // Eigene Kamera wie ein Spiegel anzeigen (nur lokal; gesendet wird unverspiegelt)
       if (item.kind === 'cam' && me && item.name === me.name) this.tile.classList.add('mirror');
       this.tile.addEventListener('dragstart', (e) => { dragKey = this.key; e.dataTransfer.effectAllowed = 'move'; this.tile.classList.add('dragging'); });
@@ -353,37 +354,96 @@
   }
 
   // ---------------------------------------------------------------- Voice (Mumble)
-  // Praesenz kommt mit /api/streams (alle 5 s) und per SSE-Event "voice" (bei Aenderung). Beitreten = mumble://-Link,
-  // den der Mumble-Client (vom Setup installiert) direkt oeffnet.
+  // Praesenz (wer ist drin, stumm, taub, spricht gerade) kommt mit /api/streams (alle 5 s) und per SSE-Event "voice"
+  // (bei jeder Aenderung, alle 500 ms geprueft). Beitreten = mumble://-Link, den der Mumble-Client (vom Setup installiert)
+  // direkt oeffnet. Mikro/Ton vom Browser aus = Server-Mute/-Taub ueber /api/voice/me.
   let voiceNames = new Set();
+  let voiceUsers = [];
+  let voiceHintTimer = null;
+  function showVoiceHint(text, ms) {
+    $('#voice-hint').textContent = text;
+    $('#voice-hint').classList.remove('hidden');
+    if (ms) setTimeout(() => $('#voice-hint').classList.add('hidden'), ms);
+  }
+  function voiceLabel(u) {
+    const parts = [el('i', { class: 'dot' }), u.name === me?.name ? `${u.name} (du)` : u.name];
+    if (u.deaf) parts.push(el('span', { class: 'ico', title: 'hört nichts' }, ' 🔇🎧'));
+    else if (u.mute) parts.push(el('span', { class: 'ico', title: u.selfMute ? 'Mikro in Mumble aus' : 'Mikro aus' }, ' 🔇'));
+    return el('span', { class: 'vu' + (u.talking ? ' talking' : '') + (u.mute || u.deaf ? ' muted' : '') + (u.name === me?.name ? ' me' : '') }, ...parts);
+  }
   function renderVoice(v) {
     if (!v || !v.enabled) { $('#voice').classList.add('hidden'); return; }
-    voiceNames = new Set(v.users.map((u) => u.name));
+    voiceUsers = v.users || [];
+    voiceNames = new Set(voiceUsers.map((u) => u.name));
+    const mine = voiceUsers.find((u) => u.name === me?.name);
     const list = $('#voice-list');
-    if (!v.ok) { list.replaceChildren(el('span', { class: 'muted' }, 'Voice-Server nicht erreichbar')); return; }
-    if (!v.users.length) { list.textContent = 'niemand im Voice'; return; }
-    const parts = [];
-    v.users.forEach((u, i) => {
-      if (i) parts.push(', ');
-      const t = u.deaf ? `${u.name} (taub)` : u.mute ? `${u.name} (stumm)` : u.name;
-      parts.push(el('b', { class: u.mute || u.deaf ? 'muted' : '', title: u.deaf ? 'hoert nichts' : u.mute ? 'Mikro aus' : '' }, t));
-    });
-    list.replaceChildren(...parts);
-    // Chips unten aktualisieren, ohne die ganze Liste neu zu laden
+    if (!v.ok) list.replaceChildren(el('span', { class: 'muted' }, 'Voice-Server nicht erreichbar'));
+    else if (!voiceUsers.length) list.textContent = 'niemand im Voice';
+    else list.replaceChildren(...voiceUsers.map(voiceLabel));
+
+    // Eigener Zustand: Beitreten-Link oder Mikro/Ton-Schalter
+    $('#btn-voice').classList.toggle('hidden', !!mine);
+    $('#voice-me').classList.toggle('hidden', !mine);
+    if (mine) {
+      if (voiceHintTimer) { clearTimeout(voiceHintTimer); voiceHintTimer = null; }
+      $('#voice-hint').classList.add('hidden');
+      const mic = $('#btn-mic'), deaf = $('#btn-deaf');
+      mic.textContent = mine.mute ? '🔇 Mikro aus' : '🎤 Mikro an';
+      mic.classList.toggle('off', !!mine.mute);
+      mic.title = mine.selfMute && !mine.serverMute ? 'In Mumble selbst stummgeschaltet, dort wieder einschalten' : (mine.mute ? 'Mikro einschalten' : 'Mikro ausschalten');
+      deaf.textContent = mine.deaf ? '🔇🎧 Taub' : '🎧 Ton an';
+      deaf.classList.toggle('off', !!mine.deaf);
+      deaf.title = mine.selfDeaf && !mine.serverDeaf ? 'In Mumble selbst taub geschaltet, dort wieder einschalten' : (mine.deaf ? 'Wieder hören' : 'Nichts mehr hören (und Mikro aus)');
+      $('#voice-me').classList.toggle('talking', !!mine.talking);
+    }
+
+    // Chips (nicht streamende) und Kacheln (streamende): 🎙 wenn im Voice, grün wenn spricht
     for (const c of document.querySelectorAll('#offline .chip:not(.own)')) {
       const name = c.firstChild?.textContent || '';
-      const has = !!c.querySelector('.mic');
-      if (voiceNames.has(name) && !has) c.append(el('span', { class: 'mic' }, '🎙'));
-      if (!voiceNames.has(name) && has) c.querySelector('.mic').remove();
+      const u = voiceUsers.find((x) => x.name === name);
+      let mic = c.querySelector('.mic');
+      if (u && !mic) { mic = el('span', { class: 'mic' }, '🎙'); c.append(mic); }
+      if (!u && mic) mic.remove();
+      c.classList.toggle('talking', !!u?.talking);
+      c.classList.toggle('vmuted', !!(u && (u.mute || u.deaf)));
+    }
+    for (const p of players.values()) {
+      const u = voiceUsers.find((x) => x.name === p.name);
+      p.tile.classList.toggle('talking', !!u?.talking);
+      p.voiceIco.textContent = u ? (u.mute || u.deaf ? '🔇' : '🎙') : '';
+      p.voiceIco.title = u ? (u.talking ? 'spricht' : (u.mute || u.deaf ? 'im Voice, stumm' : 'im Voice')) : '';
     }
   }
   $('#btn-voice').addEventListener('click', () => {
     if (!me?.voiceUrl) return;
-    window.location.href = me.voiceUrl;
-    const b = $('#btn-voice');
-    b.textContent = '🎙 Mumble wird geöffnet…';
-    b.title = 'Nichts passiert? Dann fehlt Mumble: Setup.cmd des Clients erneut ausführen (installiert es) oder "winget install Mumble.Mumble.Client".';
-    setTimeout(() => { b.textContent = '🎙 Voice beitreten'; }, 6000);
+    // Der Browser oeffnet den mumble://-Link (Chrome/Edge fragen beim ersten Mal "Mumble öffnen?"). Kommt in ein paar
+    // Sekunden keine Praesenz, Hinweis einblenden.
+    $('#voice-hint').classList.add('hidden');
+    if (voiceHintTimer) clearTimeout(voiceHintTimer);
+    voiceHintTimer = setTimeout(() => {
+      if (voiceNames.has(me.name)) return;
+      showVoiceHint('Nichts passiert? Oben im Browser "Mumble öffnen" bestätigen. Sonst: Desktop-Verknüpfung "Voice" oder das Häkchen "Voice-Chat beitreten" bei "Stream starten". Mumble fehlt? Setup.cmd erneut ausführen.');
+    }, 6000);
+  });
+  async function setMyVoice(body) {
+    try {
+      const r = await api('POST', '/api/voice/me', body);
+      renderVoice({ enabled: true, ok: true, users: r.users });
+    } catch (err) {
+      showVoiceHint(err.code === 'not_in_voice' ? 'Du bist nicht (mehr) im Voice.' : 'Voice-Server nicht erreichbar.', 4000);
+    }
+  }
+  $('#btn-mic').addEventListener('click', () => {
+    const mine = voiceUsers.find((u) => u.name === me?.name);
+    if (!mine) return;
+    if (mine.selfMute && !mine.serverMute) return showVoiceHint('Das Mikro ist in Mumble selbst ausgeschaltet, bitte dort wieder einschalten.', 5000);
+    setMyVoice({ mute: !mine.serverMute });
+  });
+  $('#btn-deaf').addEventListener('click', () => {
+    const mine = voiceUsers.find((u) => u.name === me?.name);
+    if (!mine) return;
+    if (mine.selfDeaf && !mine.serverDeaf) return showVoiceHint('In Mumble selbst taub geschaltet, bitte dort wieder einschalten.', 5000);
+    setMyVoice(mine.serverDeaf ? { mute: false } : { deaf: true });
   });
 
   // ---------------------------------------------------------------- Gruppen-Chat

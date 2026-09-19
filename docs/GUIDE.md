@@ -56,7 +56,9 @@ Hotkeys while streaming (fixed OBS scenes): `Ctrl+Alt+1/2` = monitor 1/2 (pick t
 ## 5. Voice (Mumble)
 
 - **Join**: tick "Voice-Chat beitreten" in the chooser of "Stream starten" (on by default), double-click **Voice** on the desktop, or click **🎙 Voice beitreten** at the top of the website, or **Voice** in the LIVE window. Mumble opens and is in the channel right away, no password, no prompts. If Mumble is already running, a second click just hands the address to it.
-- Who is in the voice chat is shown next to the button on the website (and as 🎙 on the grey name chips). *(stumm)* = mic off, *(taub)* = deafened.
+- Once you are in, the website shows **● Im Voice** at the top with two switches: **🎤 Mikro** (mic on/off) and **🎧 Ton** (deafen = hear nothing and mic off). Whoever is talking gets a green dot; 🔇 = mic off, 🔇🎧 = deafened. The same marks appear on the name chips and on the stream tiles.
+- The website switches set a *server* mute; Mumble shows it as a red icon and only the website can lift it again. If you muted yourself inside Mumble, the website shows that but you have to unmute in Mumble.
+- A user named **website** appears in Mumble: that is the website's talking indicator, it only listens and never sends.
 - **Voice activation** is preset (headsets). Prefer push-to-talk: in Mumble **Settings → Audio Input → Transmission: Push To Talk**, then set the key under **Shortcuts**.
 - Mute / deafen: the buttons at the top of Mumble (or set shortcuts there). Mumble minimises to the tray; closing the window quits it.
 - Quality: Opus 96 kbit/s, usually under 50 ms delay. If your mic level is off, run Mumble → **Settings → Audio Wizard** once.
@@ -84,6 +86,7 @@ Manually: unpack the new package, put `relay.json` next to it, run `Setup.cmd` a
 | Nothing happens on double-click or an error window appears | Double-click **Stream Stop** once, wait 10 s, then "Stream starten" again. Details are in `%LOCALAPPDATA%\stream-relay\launcher.log`. |
 | Chooser window is empty or "No connection to OBS" | Quit OBS completely (Stream Stop), wait 10 s, try again. If it persists: run `Setup.cmd` again. |
 | Camera stays black | The camera is in use by another program, turn video off there. Or toggle the camera off and on in the LIVE window. |
+| "Voice beitreten" on the website does nothing | The browser asks "Open Mumble?" at the top, confirm it (Chrome/Edge: tick "Always allow"). If nothing comes: desktop shortcut "Voice" or the checkbox in "Stream starten". |
 | "Voice" does nothing or says Mumble is not installed | Run `Setup.cmd` again, it installs Mumble. Then click "Voice" again. |
 | Mumble asks for a certificate or shows the audio wizard | Click through once with "Next"; this only happens if Mumble was used before the setup ran. |
 | Others cannot hear me / I hear nothing | Check the mute/deafen icons at the top of Mumble (red = off). Then Settings → Audio Input/Output → pick the right device (headset). |

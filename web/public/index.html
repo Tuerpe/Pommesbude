@@ -47,8 +47,14 @@
       <div class="brand">🍟 {{SITE_NAME}}</div>
       <div class="status" id="live-count"></div>
       <div class="voice hidden" id="voice">
-        <button id="btn-voice" title="Mumble öffnen und dem Voice beitreten">🎙 Voice beitreten</button>
+        <a id="btn-voice" class="voice-join" href="#" title="Mumble öffnen und dem Voice beitreten">🎙 Voice beitreten</a>
+        <span id="voice-me" class="voice-me hidden">
+          <span class="voice-badge" title="Du bist im Voice"><i class="dot"></i>Im Voice</span>
+          <button id="btn-mic" class="secondary" title="Mikrofon">🎤 Mikro an</button>
+          <button id="btn-deaf" class="secondary" title="Ton">🎧 Ton an</button>
+        </span>
         <span id="voice-list" class="voice-list"></span>
+        <span id="voice-hint" class="voice-hint hidden"></span>
       </div>
       <nav>
         <button id="btn-chat" class="secondary" title="Gruppen-Chat ein-/ausblenden">💬 Chat <span id="chat-badge" class="badge hidden"></span></button>

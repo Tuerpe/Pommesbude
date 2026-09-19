@@ -92,6 +92,8 @@ services:
     pid: "service:mumble"
     environment:
       ICE_SECRET: ${MUMBLE_ICE_SECRET}
+      BOT_PASSWORD: ${MUMBLE_PASSWORD}
+      BOT_NAME: website
       CERT_SRC_CRT: /caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${DOMAIN}/${DOMAIN}.crt
       CERT_SRC_KEY: /caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${DOMAIN}/${DOMAIN}.key
     volumes:

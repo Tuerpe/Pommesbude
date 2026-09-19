@@ -56,7 +56,9 @@ Hotkeys im laufenden Stream (feste Szenen aus OBS): `Strg+Alt+1/2` = Monitor 1/2
 ## 5. Voice (Mumble)
 
 - **Beitreten**: Häkchen "Voice-Chat beitreten" im Auswahlfenster von "Stream starten" (Standard: an), Doppelklick auf **Voice** auf dem Desktop, oder auf der Website oben **🎙 Voice beitreten**, oder im LIVE-Fenster **Voice**. Mumble öffnet sich und ist sofort im Sprachkanal, kein Passwort, keine Rückfrage. Läuft Mumble schon, passiert beim zweiten Klick nichts Schlimmes.
-- Wer gerade im Voice ist, steht oben auf der Website neben dem Knopf (und als 🎙 an den grauen Namens-Chips). *(stumm)* = Mikro aus, *(taub)* = hört nichts.
+- Bist du drin, zeigt die Website oben **● Im Voice** mit zwei Schaltern: **🎤 Mikro an/aus** und **🎧 Ton an/Taub** (Taub = nichts hören und Mikro aus). Wer gerade spricht, bekommt einen grünen Punkt; 🔇 = Mikro aus, 🔇🎧 = taub. Das steht auch an den Namens-Chips und an den Stream-Kacheln.
+- Die Schalter auf der Website setzen ein *Server*-Stumm; in Mumble siehst du es als rotes Symbol und hebst es auch nur über die Website wieder auf. Hast du dich in Mumble selbst stummgeschaltet, zeigt die Website das an, aufheben musst du es dann in Mumble.
+- In Mumble taucht ein Nutzer **website** auf: das ist die Sprech-Anzeige der Website, er hört nur zu und sendet nie.
 - **Sprachaktivierung** ist voreingestellt (Headset). Lieber Push-to-talk: in Mumble **Einstellungen → Audioeingabe → Übertragung: Push-to-Talk**, dann unter **Tastenkürzel** die Taste setzen.
 - Mikro stumm / Ton aus: die Knöpfe oben in Mumble (oder eigene Tastenkürzel dort setzen). Mumble minimiert sich ins Tray; Fenster schließen beendet es.
 - Qualität: Opus 96 kbit/s, Verzögerung meist unter 50 ms. Bei Problemen mit der Mikro-Lautstärke einmal Mumble → **Einstellungen → Audio-Assistent** durchklicken.
@@ -84,6 +86,7 @@ Manuell: neues Paket entpacken, `relay.json` daneben legen, `Setup.cmd` erneut a
 | Beim Doppelklick auf "Stream starten" passiert nichts oder ein Fehlerfenster kommt | Einmal **Stream Stop** doppelklicken, 10 s warten, dann "Stream starten" erneut. Details stehen in `%LOCALAPPDATA%\stream-relay\launcher.log`. |
 | Auswahlfenster ist leer oder Fehler "Keine Verbindung zu OBS" | OBS einmal komplett beenden (Stream Stop), 10 s warten, nochmal. Bleibt es: `Setup.cmd` erneut ausführen. |
 | Kamera bleibt schwarz | Kamera wird gerade von einem anderen Programm benutzt, dort Video aus. Oder im LIVE-Fenster Kamera aus und wieder an. |
+| "Voice beitreten" auf der Website tut nichts | Der Browser fragt oben "Mumble öffnen?", das bestätigen (Chrome/Edge: "Immer erlauben" anhaken). Kommt nichts: Desktop-Verknüpfung "Voice" oder das Häkchen bei "Stream starten". |
 | "Voice" tut nichts oder meldet "Mumble ist nicht installiert" | `Setup.cmd` erneut ausführen, das installiert Mumble. Danach nochmal "Voice". |
 | Mumble fragt nach einem Zertifikat oder zeigt den Audio-Assistenten | Einmal mit "Weiter" durchklicken, das kommt nur, wenn Mumble schon vor dem Setup benutzt wurde. |
 | Andere hören mich nicht / ich höre nichts | In Mumble oben prüfen, ob Mikro oder Lautsprecher stummgeschaltet sind (rote Symbole). Dann Einstellungen → Audioeingabe/-ausgabe → richtiges Gerät (Headset) wählen. |
