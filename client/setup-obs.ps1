@@ -139,6 +139,67 @@ if (-not $StreamKey) {
 }
 if ($StreamKey -notmatch '^[0-9a-f]{48}$') { Fail 'Stream-Key sieht falsch aus (48 Hex-Zeichen erwartet).' }
 
+# --- 1b. Voice-Chat (Mumble) -----------------------------------------------------
+# Der Server sagt, ob Voice eingerichtet ist (mumble://-Adresse mit Server-Passwort, Nachweis = Stream-Key).
+# Dann: Mumble per winget installieren, falls es fehlt, und beim ersten Mal die Client-Einstellungen vorbelegen
+# (Assistenten aus, 96 kbit/s Opus, Low delay, RNNoise, Sprachaktivierung), damit "Voice" sofort funktioniert.
+$voiceUrl = ''
+try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $body = @{ name = $Name; streamKey = $StreamKey } | ConvertTo-Json -Compress
+    $v = Invoke-RestMethod -Uri "https://$Domain/api/client/voice" -Method Post -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body)) -TimeoutSec 15 -UseBasicParsing
+    if ($v.voiceUrl) { $voiceUrl = [string]$v.voiceUrl }
+} catch { Write-Host "Voice-Abfrage beim Server fehlgeschlagen ($($_.Exception.Message)), Voice wird uebersprungen." -ForegroundColor Yellow }
+function Get-MumbleExe {
+    try { $c = (Get-ItemProperty 'Registry::HKEY_CLASSES_ROOT\mumble\shell\open\command' -ErrorAction Stop).'(default)'; if ($c -match '^"([^"]+)"') { if (Test-Path $Matches[1]) { return $Matches[1] } } } catch {}
+    foreach ($p in @("$env:ProgramFiles\Mumble\client\mumble.exe", "${env:ProgramFiles(x86)}\Mumble\client\mumble.exe")) { if ($p -and (Test-Path $p)) { return $p } }
+    return $null
+}
+function Ensure-Mumble {
+    if (Get-MumbleExe) { return }
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Write-Host 'Mumble (Voice-Chat) fehlt und winget ist nicht verfuegbar. Bitte von https://www.mumble.info/downloads/ installieren.' -ForegroundColor Yellow
+        if (-not $Update) { Start-Process 'https://www.mumble.info/downloads/' }
+        return
+    }
+    if (-not $Update) {
+        $a = Read-Host 'Mumble (Voice-Chat der Gruppe) ist nicht installiert. Jetzt automatisch installieren (per winget, Windows fragt einmal nach Admin-Rechten)? [J/n]'
+        if (-not ($a -eq '' -or $a -match '^[jJyY]')) { return }
+    }
+    & winget install --id Mumble.Mumble.Client -e --accept-package-agreements --accept-source-agreements --silent
+    if (Get-MumbleExe) { Write-Host 'Mumble installiert.' -ForegroundColor Green } else { Write-Host 'Mumble konnte nicht installiert werden (spaeter: Setup.cmd erneut ausfuehren oder winget install Mumble.Mumble.Client).' -ForegroundColor Yellow }
+}
+# Einstellungen nur anlegen, wenn Mumble noch nie lief (sonst bleiben die eigenen Einstellungen unangetastet).
+function Initialize-MumbleSettings {
+    $dir = Join-Path $env:LOCALAPPDATA 'Mumble\Mumble'
+    $file = Join-Path $dir 'mumble_settings.json'
+    if (Test-Path $file) { return }
+    if (Get-Process mumble -ErrorAction SilentlyContinue) { return }
+    # Client-Zertifikat vorab erzeugen (RSA, PKCS#12 ohne Passwort, wie Mumble es selbst macht), sonst zeigt Mumble beim ersten Start einen Assistenten.
+    $cert = ''
+    try {
+        $rsa = [System.Security.Cryptography.RSA]::Create(2048)
+        $req = New-Object System.Security.Cryptography.X509Certificates.CertificateRequest("CN=$Name, O=Mumble User", $rsa, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
+        $x = $req.CreateSelfSigned([DateTimeOffset]::UtcNow.AddDays(-1), [DateTimeOffset]::UtcNow.AddYears(20))
+        $cert = [Convert]::ToBase64String($x.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pkcs12, ''))
+    } catch { Write-Host "Mumble-Zertifikat konnte nicht vorab erzeugt werden ($($_.Exception.Message)); Mumble fragt beim ersten Start einmal nach (einfach 'Weiter')." -ForegroundColor Yellow }
+    $s = [ordered]@{
+        settings_version = 1
+        mumble_has_quit_normally = $true
+        misc = [ordered]@{ audio_wizard_has_been_shown = $true; viewed_server_ping_consent_message = $true }
+        audio = [ordered]@{ transmit_mode = 'VAD'; vad_mode = 'SignalToNoise'; audio_quality = 96000; allow_low_delay_mode = $true; noise_cancel_mode = 'RNN' }
+        network = [ordered]@{ frames_per_packet = 1; reconnect_automatically = $true }
+        tts = [ordered]@{ enable_tts = $false }
+        update = [ordered]@{ check_for_updates = $false }
+    }
+    if ($cert) { $s['certificate'] = $cert }
+    New-Item -ItemType Directory -Force $dir | Out-Null
+    [IO.File]::WriteAllText($file, ($s | ConvertTo-Json -Depth 4), (New-Object Text.UTF8Encoding $false))
+    Write-Host 'Mumble-Einstellungen vorbelegt (96 kbit/s, Low delay, RNNoise, Sprachaktivierung).' -ForegroundColor Green
+}
+if ($voiceUrl) { Ensure-Mumble; if (Get-MumbleExe) { Initialize-MumbleSettings } }
+else { Write-Host 'Voice ist auf diesem Server nicht eingerichtet, Mumble wird uebersprungen.' -ForegroundColor Yellow }
+
 # --- 2. Encoder nach Grafikkarte waehlen ---------------------------------------
 # Die Vorlagen sind fuer NVIDIA (NVENC). Andere GPUs bekommen den passenden Hardware-Encoder, sonst x264 (CPU).
 if (-not $Encoder) {
@@ -227,7 +288,7 @@ $keep = @{ lastValue = ''; lastGameHook = $false; lastCamera = ''; lastCamOn = $
 if ($existingCfg) { foreach ($k in @($keep.Keys)) { if ($existingCfg.PSObject.Properties.Name -contains $k) { $keep[$k] = $existingCfg.$k } } }
 $launcherCfg = [ordered]@{
     version = $pkgVersion; obsExe = $obsExe; encoder = $Encoder; wsPort = $wsPort; wsPortCam = ($wsPort + 1); wsPassword = $wsPassword
-    domain = $Domain; name = $Name
+    domain = $Domain; name = $Name; streamKey = $StreamKey; voiceUrl = $voiceUrl
     lastValue = $keep.lastValue; lastGameHook = $keep.lastGameHook; lastCamera = $keep.lastCamera; lastCamOn = $keep.lastCamOn
 }
 [IO.File]::WriteAllText((Join-Path $launcherDir 'launcher.json'), ($launcherCfg | ConvertTo-Json), (New-Object Text.UTF8Encoding $false))
@@ -253,7 +314,19 @@ $lnk.WindowStyle = 7
 $lnk.IconLocation = "$obsExe,0"
 $lnk.Description = 'Beendet den Stream und OBS'
 $lnk.Save()
-Write-Host 'Desktop-Verknuepfungen angelegt: "Stream starten" und "Stream Stop".' -ForegroundColor Green
+$shortcuts = '"Stream starten" und "Stream Stop"'
+if ($voiceUrl) {
+    $lnk = $shell.CreateShortcut((Join-Path $desktop 'Voice.lnk'))
+    $lnk.TargetPath = $ps
+    $lnk.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launcherDir\stream.ps1`" -Voice"
+    $lnk.WorkingDirectory = $launcherDir
+    $lnk.WindowStyle = 7
+    $mExe = Get-MumbleExe; if ($mExe) { $lnk.IconLocation = "$mExe,0" }
+    $lnk.Description = 'Dem Voice-Chat der Gruppe beitreten (Mumble)'
+    $lnk.Save()
+    $shortcuts = '"Stream starten", "Stream Stop" und "Voice"'
+} else { Remove-Item (Join-Path $desktop 'Voice.lnk') -ErrorAction SilentlyContinue }
+Write-Host "Desktop-Verknuepfungen angelegt: $shortcuts." -ForegroundColor Green
 
 # --- 8. Zusammenfassung ---------------------------------------------------------
 Write-Host ''
@@ -262,6 +335,7 @@ Write-Host " Fertig, $Name (Client-Version $pkgVersion)." -ForegroundColor Cyan
 Write-Host " Zuschauen (alle Streams): https://$Domain/"
 Write-Host ' Streamen: Doppelklick auf die DESKTOP-Verknuepfung "Stream starten" (nicht auf stream.ps1 im Paket), Bildschirm oder Fenster waehlen, fertig.'
 Write-Host ' Kamera:   im Auswahlfenster "Kamera zusaetzlich senden" oder "Nur Kamera", im LIVE-Fenster jederzeit an/aus.'
+if ($voiceUrl) { Write-Host ' Voice:    Doppelklick auf "Voice" (oder Knopf "Voice beitreten" auf der Website / im LIVE-Fenster), Mumble verbindet sich von selbst.' }
 Write-Host ' Hotkeys im Stream:    Strg+Alt+1/2 = Monitor 1/2, Strg+Alt+3 = Auswahl-Szene'
 Write-Host '==================================================================' -ForegroundColor Cyan
 if (-not $Update) { Read-Host 'Enter zum Beenden' | Out-Null }

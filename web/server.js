@@ -171,6 +171,19 @@ app.get('/api/me', requireLogin, (req, res) => {
   });
 });
 
+// Fuer Client-Setup und Launcher: Voice-Zugang ohne Website-Passwort, Nachweis ist der eigene Stream-Key
+// (liegt ohnehin auf dem PC). Gleiche Bremse wie beim Login.
+app.post('/api/client/voice', (req, res) => {
+  const ip = req.ip;
+  if (loginBlocked(ip)) return res.status(429).json({ error: 'too_many_attempts' });
+  const name = String(req.body?.name || '').trim().toLowerCase();
+  const key = String(req.body?.streamKey || '');
+  const u = getUserByName(name);
+  if (!u || u.status !== 'approved' || !u.stream_key || key !== u.stream_key) { noteLoginFail(ip); return res.status(401).json({ error: 'bad_credentials' }); }
+  if (!VOICE_ENABLED) return res.json({ voice: false, voiceUrl: null });
+  res.json({ voice: true, voiceUrl: voiceUrlFor(u.name), voiceHost: MUMBLE_HOST, voicePort: MUMBLE_PORT, voicePassword: MUMBLE_PASSWORD, siteName: SITE_NAME });
+});
+
 app.post('/api/me/streamkey', requireLogin, requireApproved, (req, res) => {
   res.json({ streamKey: rotateStreamKey(req.user.id) });
 });

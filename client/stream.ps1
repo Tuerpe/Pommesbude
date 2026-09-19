@@ -3,9 +3,10 @@
   (Bildschirm oder offenes Fenster/Spiel, optional Kamera), setzt die Quellen und startet den Stream.
   Kamera laeuft als zweite OBS-Instanz (Profil StreamRelayCam, eigener WebSocket-Port) auf den Pfad <name>-cam.
   Wird von setup-obs.ps1 nach %LOCALAPPDATA%\stream-relay\stream.ps1 kopiert; Einstellungen in launcher.json daneben.
-  Aufruf: powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File stream.ps1 [-Stop]
+  Aufruf: powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File stream.ps1 [-Stop] [-Voice]
+  -Voice: nur dem Voice-Chat (Mumble) beitreten, OBS bleibt unberuehrt.
 #>
-param([switch]$Stop)
+param([switch]$Stop, [switch]$Voice)
 
 $ErrorActionPreference = 'Stop'
 # Eigenes Konsolenfenster verstecken (falls ohne -WindowStyle Hidden gestartet).
@@ -42,13 +43,54 @@ function Log($m) { Add-Content -Path $log -Value ("{0} {1}" -f (Get-Date -Format
 function Fail($m) { Log "FEHLER: $m"; Show-Box($m, 'Stream', 'OK', 'Error') | Out-Null; exit 1 }
 function Save-Cfg { $cfg | ConvertTo-Json | Set-Content $cfgPath -Encoding UTF8 }
 if ((Test-Path $log) -and ((Get-Item $log).Length -gt 512KB)) { Remove-Item $log -Force }
-Log "=== Start (Stop=$Stop)"
+Log "=== Start (Stop=$Stop Voice=$Voice)"
 trap {
     $msg = "Unerwarteter Fehler: $($_.Exception.Message)`nZeile $($_.InvocationInfo.ScriptLineNumber): $($_.InvocationInfo.Line.Trim())"
     Log $msg; Log $_.ScriptStackTrace
     Show-Box("$msg`n`nDetails: $log", 'Stream', 'OK', 'Error') | Out-Null
     exit 1
 }
+
+# ---------------------------------------------------------------- Voice (Mumble)
+# Die mumble://-Adresse (mit Server-Passwort) holt der Launcher frisch vom Server; Nachweis ist der eigene Stream-Key.
+# Laeuft Mumble schon, uebergibt ein zweiter Aufruf die Adresse an die laufende Instanz (kein zweites Fenster).
+function Get-StreamKey {
+    if ($cfg.PSObject.Properties.Name -contains 'streamKey' -and $cfg.streamKey) { return [string]$cfg.streamKey }
+    $svc = Join-Path $obsCfg 'basic\profiles\StreamRelay\service.json'
+    if (Test-Path $svc) { try { $tok = (Get-Content $svc -Raw | ConvertFrom-Json).settings.bearer_token; if ($tok -match ':([0-9a-f]{48})$') { return $Matches[1] } } catch {} }
+    return ''
+}
+function Get-MumbleExe {
+    try { $c = (Get-ItemProperty 'Registry::HKEY_CLASSES_ROOT\mumble\shell\open\command' -ErrorAction Stop).'(default)'; if ($c -match '^"([^"]+)"') { if (Test-Path $Matches[1]) { return $Matches[1] } } } catch {}
+    foreach ($p in @("$env:ProgramFiles\Mumble\client\mumble.exe", "${env:ProgramFiles(x86)}\Mumble\client\mumble.exe")) { if ($p -and (Test-Path $p)) { return $p } }
+    return $null
+}
+function Get-VoiceUrl {
+    $url = ''
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $body = @{ name = $cfg.name; streamKey = (Get-StreamKey) } | ConvertTo-Json -Compress
+        $r = Invoke-RestMethod -Uri "https://$($cfg.domain)/api/client/voice" -Method Post -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body)) -TimeoutSec 8 -UseBasicParsing
+        if ($r.voiceUrl) { $url = [string]$r.voiceUrl }
+        $cfg | Add-Member -NotePropertyName voiceUrl -NotePropertyValue $url -Force; Save-Cfg
+    } catch {
+        Log "Voice-Adresse nicht vom Server bekommen: $($_.Exception.Message)"
+        if ($cfg.PSObject.Properties.Name -contains 'voiceUrl') { $url = [string]$cfg.voiceUrl }   # zuletzt bekannte Adresse
+    }
+    return $url
+}
+function Start-Voice {
+    $exe = Get-MumbleExe
+    if (-not $exe) {
+        Show-Box("Mumble (Voice-Chat) ist nicht installiert.`n`nBitte Setup.cmd aus dem Client-Paket erneut ausfuehren, das installiert Mumble automatisch. Oder von Hand: winget install Mumble.Mumble.Client", 'Voice', 'OK', 'Warning') | Out-Null
+        return
+    }
+    $url = Get-VoiceUrl
+    if (-not $url) { Show-Box("Voice ist auf dem Server nicht eingerichtet oder der Server ist nicht erreichbar.`nDetails: $log", 'Voice', 'OK', 'Warning') | Out-Null; return }
+    Log "Voice: starte Mumble ($exe)"
+    Start-Process -FilePath $exe -ArgumentList "`"$url`"" | Out-Null
+}
+if ($Voice) { Start-Voice; exit 0 }
 
 # ---------------------------------------------------------------- obs-websocket v5 Client (mehrere Verbindungen: 'main' und 'cam')
 $script:conns = @{}
@@ -212,7 +254,7 @@ function Stop-ObsGracefully {
     if (-not (Get-Process obs64 -ErrorAction SilentlyContinue)) { return $true }
     Log 'OBS laeuft noch, beende es sauber fuer das Update'
     foreach ($id in 'main', 'cam') { if (Obs-Connected $id) { try { Obs 'StopStream' @{} $id | Out-Null } catch {}; Ws-Close $id } }
-    & "$env:SystemRootSystem32	askkill.exe" /IM obs64.exe 2>&1 | Out-Null
+    & "$env:SystemRoot\System32\taskkill.exe" /IM obs64.exe 2>&1 | Out-Null
     $sw = [Diagnostics.Stopwatch]::StartNew()
     while ((Get-Process obs64 -ErrorAction SilentlyContinue) -and $sw.Elapsed.TotalSeconds -lt 30) { Start-Sleep -Milliseconds 500 }
     if (Get-Process obs64 -ErrorAction SilentlyContinue) { return $false }
@@ -475,12 +517,12 @@ function Live-Text {
     return ($parts -join '  |  ')
 }
 $live = New-Object Windows.Forms.Form
-$live.Text = 'LIVE'; $live.Size = New-Object Drawing.Size(430, 96); $live.StartPosition = 'Manual'; $live.TopMost = $true
+$live.Text = 'LIVE'; $live.Size = New-Object Drawing.Size(490, 96); $live.StartPosition = 'Manual'; $live.TopMost = $true
 $live.FormBorderStyle = 'FixedToolWindow'; $live.ShowInTaskbar = $true
 $area = [Windows.Forms.Screen]::PrimaryScreen.WorkingArea
-$live.Location = New-Object Drawing.Point(($area.Right - 440), ($area.Bottom - 106))
+$live.Location = New-Object Drawing.Point(($area.Right - 500), ($area.Bottom - 106))
 $live.BackColor = [Drawing.Color]::FromArgb(43, 45, 49); $live.ForeColor = [Drawing.Color]::FromArgb(219, 222, 225); $live.Font = New-Object Drawing.Font('Segoe UI', 9)
-$lbl = New-Object Windows.Forms.Label; $lbl.Location = New-Object Drawing.Point(10, 8); $lbl.Size = New-Object Drawing.Size(400, 20)
+$lbl = New-Object Windows.Forms.Label; $lbl.Location = New-Object Drawing.Point(10, 8); $lbl.Size = New-Object Drawing.Size(460, 20)
 $lbl.ForeColor = [Drawing.Color]::FromArgb(35, 165, 89); $live.Controls.Add($lbl)
 $lbl.Text = "$(if ($choice.Sel.Kind -eq 'camonly') { 'Nur Kamera' } else { 'LIVE: ' + $choice.Sel.Label })$(if ($camStreaming -and $choice.Sel.Kind -ne 'camonly') { '  |  Kamera an' })"
 function New-LiveButton($text, $x, $w, $bg) {
@@ -488,10 +530,12 @@ function New-LiveButton($text, $x, $w, $bg) {
     $b.BackColor = $bg; $b.ForeColor = if ($bg.R -gt 150) { [Drawing.Color]::White } else { $live.ForeColor }; $b.FlatStyle = 'Flat'
     $live.Controls.Add($b); $b
 }
-$bSwitch = New-LiveButton 'Wechseln' 10 110 ([Drawing.Color]::FromArgb(49, 51, 56))
-$bCam = New-LiveButton $(if ($camStreaming) { 'Kamera aus' } else { 'Kamera an' }) 130 110 ([Drawing.Color]::FromArgb(49, 51, 56))
-$bStop = New-LiveButton 'Stream beenden' 250 160 ([Drawing.Color]::FromArgb(218, 55, 60))
+$bSwitch = New-LiveButton 'Wechseln' 10 100 ([Drawing.Color]::FromArgb(49, 51, 56))
+$bCam = New-LiveButton $(if ($camStreaming) { 'Kamera aus' } else { 'Kamera an' }) 118 100 ([Drawing.Color]::FromArgb(49, 51, 56))
+$bVoice = New-LiveButton 'Voice' 226 80 ([Drawing.Color]::FromArgb(35, 165, 89))
+$bStop = New-LiveButton 'Stream beenden' 314 150 ([Drawing.Color]::FromArgb(218, 55, 60))
 $bCam.Enabled = [bool]$cameras.Count
+$bVoice.Add_Click({ try { Start-Voice } catch { Show-Box("$_", 'Voice', 'OK', 'Error') | Out-Null } })
 $bSwitch.Add_Click({
     $w = @(Get-Windows); $m = @(Get-Monitors); $c = @(Get-Cameras)
     $ch = Show-Picker $m $w $c $cfg.lastValue
