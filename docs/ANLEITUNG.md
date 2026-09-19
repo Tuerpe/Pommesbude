@@ -33,7 +33,7 @@ Hinweis: Jeder laufende Stream sind ca. 8 Mbit/s Download. Bei 3 Streams also ca
    Fehlt OBS Studio oder ist es älter als Version 30, bietet das Setup an, es automatisch zu installieren bzw. zu aktualisieren (Windows fragt dabei einmal nach Admin-Rechten). Danach OBS einmal starten, den Assistenten mit **Abbrechen** schließen, OBS beenden und im Setup Enter drücken.
 
 Danach liegen auf dem Desktop: **Stream starten**, **Stream Stop** und **Voice**.
-   Fehlt Mumble (Voice-Programm), installiert das Setup es automatisch mit (Windows fragt einmal nach Admin-Rechten) und stellt es passend ein (96 kbit/s Opus, geringe Verzögerung, RNNoise-Rauschfilter, Sprachaktivierung).
+   Fehlt Mumble (Voice-Programm), installiert das Setup es automatisch mit (Windows fragt einmal nach Admin-Rechten) und stellt es passend ein (96 kbit/s Opus, geringe Verzögerung, RNNoise-Rauschfilter, Sprachaktivierung). Das Headset-Mikro wird dabei fest eingetragen (virtuelle Mikros wie Steam/NVIDIA/VoiceMeeter ignoriert das Setup; gibt es mehrere echte, fragt es). Mumble muss dabei geschlossen sein.
 
 ## 4. Streamen
 
@@ -89,7 +89,7 @@ Manuell: neues Paket entpacken, `relay.json` daneben legen, `Setup.cmd` erneut a
 | "Voice beitreten" auf der Website tut nichts | Der Browser fragt oben "Mumble öffnen?", das bestätigen (Chrome/Edge: "Immer erlauben" anhaken). Kommt nichts: Desktop-Verknüpfung "Voice" oder das Häkchen bei "Stream starten". |
 | "Voice" tut nichts oder meldet "Mumble ist nicht installiert" | `Setup.cmd` erneut ausführen, das installiert Mumble. Danach nochmal "Voice". |
 | Mumble fragt nach einem Zertifikat oder zeigt den Audio-Assistenten | Einmal mit "Weiter" durchklicken, das kommt nur, wenn Mumble schon vor dem Setup benutzt wurde. |
-| Andere hören mich nicht / ich höre nichts | In Mumble oben prüfen, ob Mikro oder Lautsprecher stummgeschaltet sind (rote Symbole). Dann Einstellungen → Audioeingabe/-ausgabe → richtiges Gerät (Headset) wählen. |
+| Andere hören mich nicht / ich höre nichts | In Mumble oben prüfen, ob Mikro oder Lautsprecher stummgeschaltet sind (rote Symbole). Dann Einstellungen → Audioeingabe → Gerät: das Headset (nicht „Steam Streaming Microphone“ o. ä.). Oder Mumble schließen und `Setup.cmd` erneut ausführen, das trägt das Headset-Mikro ein. |
 | "Starten der Ausgabe fehlgeschlagen" mit Hinweis auf NVENC/AMD | Der Encoder passt nicht zur Grafikkarte. `Setup.cmd` erneut ausführen, es wählt den Encoder automatisch (NVIDIA, AMD, Intel oder CPU). Erzwingen: `client\setup-obs.ps1 -Encoder x264`. |
 | Hotkeys wirken nicht | Manche Spiele schlucken Strg+Alt+Zahl. In OBS unter Einstellungen → Hotkeys andere Tasten setzen. |
 

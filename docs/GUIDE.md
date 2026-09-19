@@ -33,7 +33,7 @@ Note: every running stream is about 8 Mbit/s download, a camera about 2.5 Mbit/s
    If OBS Studio is missing or older than version 30, the setup offers to install or upgrade it automatically (Windows asks once for admin rights). Then start OBS once, close the wizard with **Cancel**, quit OBS and press Enter in the setup.
 
 Afterwards you have three desktop shortcuts: **Stream starten** (start), **Stream Stop** and **Voice**.
-   If Mumble (the voice client) is missing, the setup installs it automatically (Windows asks once for admin rights) and configures it (96 kbit/s Opus, low delay, RNNoise noise suppression, voice activation).
+   If Mumble (the voice client) is missing, the setup installs it automatically (Windows asks once for admin rights) and configures it (96 kbit/s Opus, low delay, RNNoise noise suppression, voice activation). It also pins the headset microphone (virtual mics such as Steam/NVIDIA/VoiceMeeter are ignored; with several real ones it asks). Mumble must be closed while the setup runs.
 
 ## 4. Streaming
 
@@ -89,7 +89,7 @@ Manually: unpack the new package, put `relay.json` next to it, run `Setup.cmd` a
 | "Voice beitreten" on the website does nothing | The browser asks "Open Mumble?" at the top, confirm it (Chrome/Edge: tick "Always allow"). If nothing comes: desktop shortcut "Voice" or the checkbox in "Stream starten". |
 | "Voice" does nothing or says Mumble is not installed | Run `Setup.cmd` again, it installs Mumble. Then click "Voice" again. |
 | Mumble asks for a certificate or shows the audio wizard | Click through once with "Next"; this only happens if Mumble was used before the setup ran. |
-| Others cannot hear me / I hear nothing | Check the mute/deafen icons at the top of Mumble (red = off). Then Settings → Audio Input/Output → pick the right device (headset). |
+| Others cannot hear me / I hear nothing | Check the mute/deafen icons at the top of Mumble (red = off). Then Settings → Audio Input → Device: the headset (not "Steam Streaming Microphone" or similar). Or close Mumble and run `Setup.cmd` again, it pins the headset mic. |
 | "Failed to start output" mentioning NVENC/AMD | The encoder does not match your GPU. Run `Setup.cmd` again, it picks the encoder automatically (NVIDIA, AMD, Intel or CPU). Force one: `client\setup-obs.ps1 -Encoder x264`. |
 | Hotkeys do not work | Some games swallow Ctrl+Alt+number. Set other keys in OBS under Settings → Hotkeys. |
 

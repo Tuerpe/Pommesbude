@@ -169,34 +169,70 @@ function Ensure-Mumble {
     & winget install --id Mumble.Mumble.Client -e --accept-package-agreements --accept-source-agreements --silent
     if (Get-MumbleExe) { Write-Host 'Mumble installiert.' -ForegroundColor Green } else { Write-Host 'Mumble konnte nicht installiert werden (spaeter: Setup.cmd erneut ausfuehren oder winget install Mumble.Mumble.Client).' -ForegroundColor Yellow }
 }
-# Einstellungen nur anlegen, wenn Mumble noch nie lief (sonst bleiben die eigenen Einstellungen unangetastet).
+# Mumble-Einstellungen: unsere Vorgaben (Assistenten aus, 96 kbit/s, Low delay, RNNoise, Sprachaktivierung, Zertifikat)
+# werden angelegt oder in eine vorhandene Datei gemischt (eigene Aenderungen wie Lautstaerke, Fenster, Tastenkuerzel bleiben).
+# Mikrofon: Mumble nimmt sonst das Windows-"Kommunikationsgeraet", das oft ein virtuelles ist (Steam, NVIDIA, VoiceMeeter);
+# deshalb wird das Headset-Mikro explizit gesetzt, wenn es eindeutig ist (sonst Rueckfrage, im Update-Modus bleibt der Default).
+function Get-MicEndpoints {
+    $virt = 'Steam|Virtual|NVIDIA|Streaming|Stereo ?mix|Stereomix|CABLE|VoiceMeeter|OBS|Desktop Audio|Loopback|Sound Mapper|What U Hear'
+    $all = @(Get-PnpDevice -Class AudioEndpoint -Status OK -ErrorAction SilentlyContinue | Where-Object { $_.InstanceId -like '*{0.0.1.00000000}*' })
+    $all | ForEach-Object {
+        $id = ($_.InstanceId -replace '^SWD\\MMDEVAPI\\', '')
+        $id = $id.Substring(0, 16) + $id.Substring(16).ToLower()   # {0.0.1.00000000}.{guid in Kleinbuchstaben}, so wie WASAPI die ID liefert
+        [pscustomobject]@{ Name = $_.FriendlyName; Id = $id; Virtual = [bool]($_.FriendlyName -match $virt) }
+    }
+}
 function Initialize-MumbleSettings {
     $dir = Join-Path $env:LOCALAPPDATA 'Mumble\Mumble'
     $file = Join-Path $dir 'mumble_settings.json'
-    if (Test-Path $file) { return }
-    if (Get-Process mumble -ErrorAction SilentlyContinue) { return }
-    # Client-Zertifikat vorab erzeugen (RSA, PKCS#12 ohne Passwort, wie Mumble es selbst macht), sonst zeigt Mumble beim ersten Start einen Assistenten.
-    $cert = ''
-    try {
-        $rsa = [System.Security.Cryptography.RSA]::Create(2048)
-        $req = New-Object System.Security.Cryptography.X509Certificates.CertificateRequest("CN=$Name, O=Mumble User", $rsa, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
-        $x = $req.CreateSelfSigned([DateTimeOffset]::UtcNow.AddDays(-1), [DateTimeOffset]::UtcNow.AddYears(20))
-        $cert = [Convert]::ToBase64String($x.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pkcs12, ''))
-    } catch { Write-Host "Mumble-Zertifikat konnte nicht vorab erzeugt werden ($($_.Exception.Message)); Mumble fragt beim ersten Start einmal nach (einfach 'Weiter')." -ForegroundColor Yellow }
-    $s = [ordered]@{
-        settings_version = 1
-        mumble_has_quit_normally = $true
-        misc = [ordered]@{ audio_wizard_has_been_shown = $true; viewed_server_ping_consent_message = $true }
-        audio = [ordered]@{ transmit_mode = 'VAD'; vad_mode = 'SignalToNoise'; audio_quality = 96000; allow_low_delay_mode = $true; noise_cancel_mode = 'RNN' }
-        network = [ordered]@{ frames_per_packet = 1; reconnect_automatically = $true }
-        tts = [ordered]@{ enable_tts = $false }
-        update = [ordered]@{ check_for_updates = $false }
-        ui = [ordered]@{ quit_behavior = 'AlwaysQuit' }   # Fenster schliessen = Mumble beenden, ohne Rueckfrage
+    if (Get-Process mumble -ErrorAction SilentlyContinue) { Write-Host 'Mumble laeuft gerade, Einstellungen bleiben unangetastet (Mumble beenden und Setup erneut ausfuehren).' -ForegroundColor Yellow; return }
+    $s = $null
+    if (Test-Path $file) { try { $s = Get-Content $file -Raw | ConvertFrom-Json } catch { $s = $null } }
+    if (-not $s) { $s = [pscustomobject]@{ settings_version = 1 } }
+    function Set-Section($obj, $name) { if (-not ($obj.PSObject.Properties.Name -contains $name) -or -not $obj.$name) { $obj | Add-Member -NotePropertyName $name -NotePropertyValue ([pscustomobject]@{}) -Force }; $obj.$name }
+    function Set-Prop($obj, $name, $value) { $obj | Add-Member -NotePropertyName $name -NotePropertyValue $value -Force }
+    $misc = Set-Section $s 'misc'; $audio = Set-Section $s 'audio'; $net = Set-Section $s 'network'
+    $tts = Set-Section $s 'tts'; $upd = Set-Section $s 'update'; $ui = Set-Section $s 'ui'; $be = Set-Section $s 'audio_backend'
+    $ours = [bool]$audio.audio_quality
+    if (-not $ours) {
+        Set-Prop $misc 'audio_wizard_has_been_shown' $true; Set-Prop $misc 'viewed_server_ping_consent_message' $true
+        Set-Prop $audio 'transmit_mode' 'VAD'; Set-Prop $audio 'vad_mode' 'SignalToNoise'; Set-Prop $audio 'audio_quality' 96000
+        Set-Prop $audio 'allow_low_delay_mode' $true; Set-Prop $audio 'noise_cancel_mode' 'RNN'
+        Set-Prop $net 'frames_per_packet' 1; Set-Prop $net 'reconnect_automatically' $true
+        Set-Prop $tts 'enable_tts' $false; Set-Prop $upd 'check_for_updates' $false
+        Set-Prop $ui 'quit_behavior' 'AlwaysQuit'   # Fenster schliessen = Mumble beenden, ohne Rueckfrage
     }
-    if ($cert) { $s['certificate'] = $cert }
+    Set-Prop $s 'mumble_has_quit_normally' $true
+    # Client-Zertifikat vorab erzeugen (RSA, PKCS#12 ohne Passwort, wie Mumble es selbst macht), sonst zeigt Mumble beim ersten Start einen Assistenten.
+    if (-not $s.certificate) {
+        try {
+            $rsa = [System.Security.Cryptography.RSA]::Create(2048)
+            $req = New-Object System.Security.Cryptography.X509Certificates.CertificateRequest("CN=$Name, O=Mumble User", $rsa, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
+            $x = $req.CreateSelfSigned([DateTimeOffset]::UtcNow.AddDays(-1), [DateTimeOffset]::UtcNow.AddYears(20))
+            Set-Prop $s 'certificate' ([Convert]::ToBase64String($x.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pkcs12, '')))
+        } catch { Write-Host "Mumble-Zertifikat konnte nicht vorab erzeugt werden ($($_.Exception.Message)); Mumble fragt beim ersten Start einmal nach (einfach 'Weiter')." -ForegroundColor Yellow }
+    }
+    # Mikrofon
+    $mics = @(Get-MicEndpoints)
+    $real = @($mics | Where-Object { -not $_.Virtual })
+    $current = [string]$be.wasapi_input
+    if ($current -and -not ($mics | Where-Object { $_.Id -eq $current })) { $current = '' }   # eingetragenes Geraet gibt es nicht mehr
+    $pick = $null
+    if (-not $current) {
+        if ($real.Count -eq 1) { $pick = $real[0] }
+        elseif ($real.Count -gt 1 -and -not $Update) {
+            Write-Host 'Mehrere Mikrofone gefunden. Welches soll Mumble benutzen?'
+            for ($i = 0; $i -lt $real.Count; $i++) { Write-Host "  [$($i + 1)] $($real[$i].Name)" }
+            Write-Host '  [0] Windows-Standard lassen'
+            $a = Read-Host 'Nummer'
+            if ($a -match '^\d+$' -and [int]$a -ge 1 -and [int]$a -le $real.Count) { $pick = $real[[int]$a - 1] }
+        }
+        if ($pick) { Set-Prop $be 'wasapi_input' $pick.Id; Write-Host "Mumble-Mikrofon: $($pick.Name)" -ForegroundColor Green }
+        elseif ($mics.Count -and $real.Count -ne 1) { Write-Host 'Mumble-Mikrofon bleibt Windows-Standard (in Mumble unter Einstellungen -> Audioeingabe aenderbar).' -ForegroundColor Yellow }
+    }
     New-Item -ItemType Directory -Force $dir | Out-Null
-    [IO.File]::WriteAllText($file, ($s | ConvertTo-Json -Depth 4), (New-Object Text.UTF8Encoding $false))
-    Write-Host 'Mumble-Einstellungen vorbelegt (96 kbit/s, Low delay, RNNoise, Sprachaktivierung).' -ForegroundColor Green
+    [IO.File]::WriteAllText($file, ($s | ConvertTo-Json -Depth 8), (New-Object Text.UTF8Encoding $false))
+    Write-Host $(if ($ours) { 'Mumble-Einstellungen geprueft.' } else { 'Mumble-Einstellungen vorbelegt (96 kbit/s, Low delay, RNNoise, Sprachaktivierung).' }) -ForegroundColor Green
 }
 if ($voiceUrl) { Ensure-Mumble; if (Get-MumbleExe) { Initialize-MumbleSettings } }
 else { Write-Host 'Voice ist auf diesem Server nicht eingerichtet, Mumble wird uebersprungen.' -ForegroundColor Yellow }
