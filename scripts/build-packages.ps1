@@ -16,7 +16,7 @@ function New-Package([string]$name, [scriptblock]$fill) {
     New-Item -ItemType Directory -Force $stage | Out-Null
     & $fill $stage
     # Sicherheitsnetz: nichts Instanzspezifisches im Paket
-    $bad = Get-ChildItem $stage -Recurse -File | Where-Object { $_.Name -in 'relay.json', '.env', 'launcher.json' -or $_.Name -like 'PRIVATE*' -or $_.FullName -like '*node_modules*' }
+    $bad = Get-ChildItem $stage -Recurse -File | Where-Object { $_.Name -in 'relay.json', '.env', 'launcher.json' -or $_.Name -like '.env.*' -or $_.Name -like 'PRIVATE*' -or $_.FullName -like '*node_modules*' }
     if ($bad) { throw "Paket $name enthaelt verbotene Dateien: $($bad.FullName -join ', ')" }
     $zip = Join-Path $dist "$name.zip"
     if (Test-Path $zip) { Remove-Item $zip -Force }
@@ -40,7 +40,7 @@ New-Package 'pommesbude-server' {
         Copy-Item (Join-Path $root $d) (Join-Path $stage $d) -Recurse -Force
     }
     Remove-Item (Join-Path $stage 'web\node_modules') -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item (Join-Path $stage 'server\.env') -Force -ErrorAction SilentlyContinue
+    Get-ChildItem (Join-Path $stage 'server') -Filter '.env*' -Force -ErrorAction SilentlyContinue | Remove-Item -Force
     foreach ($f in 'VERSION', 'README.md', 'LICENSE', 'relay.example.json', 'Setup.cmd', '.dockerignore', '.gitignore') { Copy-Item (Join-Path $root $f) $stage -Force }
 }
 

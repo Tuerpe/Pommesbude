@@ -191,6 +191,7 @@ function Initialize-MumbleSettings {
         network = [ordered]@{ frames_per_packet = 1; reconnect_automatically = $true }
         tts = [ordered]@{ enable_tts = $false }
         update = [ordered]@{ check_for_updates = $false }
+        ui = [ordered]@{ quit_behavior = 'AlwaysQuit' }   # Fenster schliessen = Mumble beenden, ohne Rueckfrage
     }
     if ($cert) { $s['certificate'] = $cert }
     New-Item -ItemType Directory -Force $dir | Out-Null

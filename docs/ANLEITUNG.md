@@ -1,6 +1,6 @@
 # Streamen und Zuschauen über unseren eigenen Server (1080p60)
 
-Voice bleibt in Discord. Nur das Bild läuft über den eigenen Server. Alles läuft über **eine** Website.
+Bild, Voice und Chat laufen über den eigenen Server, Discord wird nicht mehr gebraucht. Alles läuft über **eine** Website; Voice über Mumble (installiert das Setup).
 Die Adresse steht in der `relay.json`, die ihr vom Betreiber bekommt (Feld `domain`), z. B. `https://stream.example.org/`.
 
 ## 1. Registrieren (einmalig, 1 Minute)
@@ -32,7 +32,8 @@ Hinweis: Jeder laufende Stream sind ca. 8 Mbit/s Download. Bei 3 Streams also ca
 2. **Doppelklick auf `Setup.cmd`.** Benutzername und Passwort der Website eingeben (dieselben wie beim Einloggen), den Rest holt sich das Setup selbst.
    Fehlt OBS Studio oder ist es älter als Version 30, bietet das Setup an, es automatisch zu installieren bzw. zu aktualisieren (Windows fragt dabei einmal nach Admin-Rechten). Danach OBS einmal starten, den Assistenten mit **Abbrechen** schließen, OBS beenden und im Setup Enter drücken.
 
-Danach liegen auf dem Desktop: **Stream starten** und **Stream Stop**.
+Danach liegen auf dem Desktop: **Stream starten**, **Stream Stop** und **Voice**.
+   Fehlt Mumble (Voice-Programm), installiert das Setup es automatisch mit (Windows fragt einmal nach Admin-Rechten) und stellt es passend ein (96 kbit/s Opus, geringe Verzögerung, RNNoise-Rauschfilter, Sprachaktivierung).
 
 ## 4. Streamen
 
@@ -48,8 +49,21 @@ Hotkeys im laufenden Stream (feste Szenen aus OBS): `Strg+Alt+1/2` = Monitor 1/2
 
 ## Ton
 
-- Es wird nur der Ton **einer** Anwendung übertragen (die im Auswahlfenster unter "Ton von" steht). Discord-Voice landet nie im Stream.
-- Mikrofon wird nicht übertragen, ihr redet ja in Discord.
+- Es wird nur der Ton **einer** Anwendung übertragen (die im Auswahlfenster unter "Ton von" steht). Der Voice-Chat landet nie im Stream.
+- Mikrofon wird nicht übertragen, ihr redet ja im Voice.
+
+## 5. Voice (Mumble)
+
+- **Beitreten**: Doppelklick auf **Voice** auf dem Desktop, oder auf der Website oben **🎙 Voice beitreten**, oder im LIVE-Fenster **Voice**. Mumble öffnet sich und ist sofort im Sprachkanal, kein Passwort, keine Rückfrage. Läuft Mumble schon, passiert beim zweiten Klick nichts Schlimmes.
+- Wer gerade im Voice ist, steht oben auf der Website neben dem Knopf (und als 🎙 an den grauen Namens-Chips). *(stumm)* = Mikro aus, *(taub)* = hört nichts.
+- **Sprachaktivierung** ist voreingestellt (Headset). Lieber Push-to-talk: in Mumble **Einstellungen → Audioeingabe → Übertragung: Push-to-Talk**, dann unter **Tastenkürzel** die Taste setzen.
+- Mikro stumm / Ton aus: die Knöpfe oben in Mumble (oder eigene Tastenkürzel dort setzen). Mumble minimiert sich ins Tray; Fenster schließen beendet es.
+- Qualität: Opus 96 kbit/s, Verzögerung meist unter 50 ms. Bei Problemen mit der Mikro-Lautstärke einmal Mumble → **Einstellungen → Audio-Assistent** durchklicken.
+- Mumble fehlt oder wurde deinstalliert: `Setup.cmd` erneut ausführen (installiert es) oder `winget install Mumble.Mumble.Client`.
+
+## 6. Chat
+
+Oben rechts **💬 Chat** öffnet den Gruppen-Chat neben den Streams (am Handy als Vollbild). Enter sendet, Shift+Enter macht eine neue Zeile, Links sind anklickbar. Ungelesene Nachrichten stehen als Zahl am Knopf und im Tab-Titel. Der Verlauf bleibt auf dem Server (die letzten 2000 Nachrichten).
 
 ## Updates
 
@@ -64,11 +78,14 @@ Manuell: neues Paket entpacken, `relay.json` daneben legen, `Setup.cmd` erneut a
 | Spiel bleibt schwarz | Spiel auf "Randloses Fenster" stellen und im Auswahlfenster ohne Hook wählen. Bei echtem Vollbild das Häkchen "Spielaufnahme (Hook)" setzen. |
 | "Verbindung fehlgeschlagen" beim Start | Stream-Key veraltet oder Server down. `Setup.cmd` nochmal ausführen (holt den aktuellen Key). |
 | Ich sehe "Warte auf Freigabe" | Jemand muss dich unter **Nutzer** freigeben. |
-| Passwort vergessen | Jemand aus der Gruppe klickt auf der Website unter **Nutzer** bei deinem Namen auf **Passwort** und schickt dir das Startpasswort. Danach unter "Passwort" ein eigenes setzen. |
+| Passwort vergessen | Jemand aus der Gruppe klickt auf der Website unter **Nutzer** bei deinem Namen auf **Passwort** und schickt dir das Startpasswort (z. B. im Chat). Danach unter "Passwort" ein eigenes setzen. |
 | Stream-Key ist jemandem bekannt geworden | Website → Mein Stream-Key → **Neuen Key erzeugen**, dann `Setup.cmd` neu ausführen. |
 | Beim Doppelklick auf "Stream starten" passiert nichts oder ein Fehlerfenster kommt | Einmal **Stream Stop** doppelklicken, 10 s warten, dann "Stream starten" erneut. Details stehen in `%LOCALAPPDATA%\stream-relay\launcher.log`. |
 | Auswahlfenster ist leer oder Fehler "Keine Verbindung zu OBS" | OBS einmal komplett beenden (Stream Stop), 10 s warten, nochmal. Bleibt es: `Setup.cmd` erneut ausführen. |
-| Kamera bleibt schwarz | Kamera wird gerade von Discord o. ä. benutzt, dort Video aus. Oder im LIVE-Fenster Kamera aus und wieder an. |
+| Kamera bleibt schwarz | Kamera wird gerade von einem anderen Programm benutzt, dort Video aus. Oder im LIVE-Fenster Kamera aus und wieder an. |
+| "Voice" tut nichts oder meldet "Mumble ist nicht installiert" | `Setup.cmd` erneut ausführen, das installiert Mumble. Danach nochmal "Voice". |
+| Mumble fragt nach einem Zertifikat oder zeigt den Audio-Assistenten | Einmal mit "Weiter" durchklicken, das kommt nur, wenn Mumble schon vor dem Setup benutzt wurde. |
+| Andere hören mich nicht / ich höre nichts | In Mumble oben prüfen, ob Mikro oder Lautsprecher stummgeschaltet sind (rote Symbole). Dann Einstellungen → Audioeingabe/-ausgabe → richtiges Gerät (Headset) wählen. |
 | "Starten der Ausgabe fehlgeschlagen" mit Hinweis auf NVENC/AMD | Der Encoder passt nicht zur Grafikkarte. `Setup.cmd` erneut ausführen, es wählt den Encoder automatisch (NVIDIA, AMD, Intel oder CPU). Erzwingen: `client\setup-obs.ps1 -Encoder x264`. |
 | Hotkeys wirken nicht | Manche Spiele schlucken Strg+Alt+Zahl. In OBS unter Einstellungen → Hotkeys andere Tasten setzen. |
 

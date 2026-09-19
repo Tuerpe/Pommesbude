@@ -2,7 +2,7 @@
 
 Self-hosted 1080p60 game streaming for a Discord group. A small VPS relays WebRTC streams (no transcoding),
 OBS sends via WHIP, everyone watches **all running streams on one website**: grid of large tiles, small strip for
-cameras, drag and drop, resizable split. Latency around 0.3 s. Voice stays in Discord.
+cameras, drag and drop, resizable split. Latency around 0.3 s. Voice chat (Mumble) and a group text chat are built in, so Discord is not needed.
 
 *Deutsche Version weiter unten.*
 
@@ -10,7 +10,9 @@ cameras, drag and drop, resizable split. Latency around 0.3 s. Voice stays in Di
 
 - **One website** with login and approval: register, someone from the group approves, done. Every approved user gets a stream key.
 - **Grid + strip**: game streams large, webcams small, views *Standard / All large / All small / Custom*, drag tiles between grid and strip, draggable split bar, focus one tile, hide cameras, one audio source at a time. Layout is remembered per browser.
-- **Launcher for Windows**: one desktop shortcut starts OBS in the background, shows a chooser (screen, any open window or game, webcam), and streams. Switch sources live, toggle the camera, stop everything from a small LIVE window.
+- **Launcher for Windows**: one desktop shortcut starts OBS in the background, shows a chooser (screen, any open window or game, webcam), and streams. Switch sources live, toggle the camera, join voice, stop everything from a small LIVE window.
+- **Voice chat**: self-hosted Mumble server (Opus 96 kbit/s, low delay, RNNoise) using the site's Let's Encrypt certificate. The setup installs and configures the Mumble client; one click on the website, the desktop shortcut or the LIVE window joins without any prompts. Presence (who is in, muted, deafened) is shown on the website.
+- **Group chat**: simple text chat on the website, live via server-sent events, with unread counter and clickable links.
 - **Camera as a separate 720p stream** so viewers can show or hide it independently.
 - **Updates**: the launcher asks the server for the current client version on every start, offers updates, and enforces them when the server requires a newer client.
 - **Privacy by design**: WebRTC only, per-user stream keys, viewer tokens, no RTMP, the MediaMTX auth hook is not reachable from outside.
@@ -24,7 +26,7 @@ Browser ──HTTPS──> Caddy ──┬─ /<name>/whip, /<name>/whep ──>
 OBS ─────HTTPS──> Caddy ───── /<name>/whip ─────────────────> mediamtx:8889
 mediamtx ──HTTP──> web:3000/api/mediamtx/auth   (auth hook: publish = stream key, read = viewer token)
 web      ──HTTP──> mediamtx:9997/v3/paths/list  (who is live)
-UDP 8189 (media) directly to mediamtx.
+UDP 8189 (media) directly to mediamtx. Mumble clients connect to mumble:64738 (TLS with the same Let's Encrypt certificate); web reads voice presence from the mumble-ice sidecar.
 ```
 
 ## Repository layout
@@ -75,7 +77,7 @@ Server: unpack the new `pommesbude-server.zip` over the old folder (`server/.env
 
 ## Requirements
 
-- Server: Debian 12/13 or Ubuntu 22.04+, a domain pointing at it, ports 80/443 TCP and 8189 UDP.
+- Server: Debian 12/13 or Ubuntu 22.04+, a domain pointing at it, ports 80/443 TCP, 8189 UDP and 64738 TCP+UDP (voice).
 - Streamers: Windows 10/11, OBS Studio 30+ (installed on demand), any GPU (the setup picks NVENC, AMF, QSV or x264 automatically), about 10 Mbit/s upload.
 - Viewers: any current browser; roughly 8 Mbit/s download per stream shown.
 
@@ -89,13 +91,15 @@ MIT, see `LICENSE`.
 
 Selbst gehostetes 1080p60-Game-Streaming für eine Discord-Gruppe. Ein kleiner VPS leitet WebRTC-Streams 1:1 weiter (kein
 Transcoding), OBS sendet per WHIP, alle sehen **alle laufenden Streams auf einer Website**: großes Raster, kleine Leiste für
-Kameras, Drag & Drop, verschiebbarer Trennbalken. Latenz etwa 0,3 s. Voice bleibt in Discord.
+Kameras, Drag & Drop, verschiebbarer Trennbalken. Latenz etwa 0,3 s. Voice-Chat (Mumble) und ein Gruppen-Chat sind eingebaut, Discord wird nicht mehr gebraucht.
 
 ## Funktionen
 
 - **Eine Website** mit Registrierung und Freigabe: registrieren, jemand aus der Gruppe schaltet frei, fertig. Jeder freigegebene Nutzer bekommt einen Stream-Key.
 - **Raster + Leiste**: Spiel-Streams groß, Webcams klein, Ansichten *Standard / Alle groß / Alle klein / Eigene*, Kacheln ziehen, Trennbalken ziehen, eine Kachel fokussieren, Kameras ausblenden, genau eine Tonquelle. Die Zusammenstellung bleibt im Browser gespeichert.
-- **Launcher für Windows**: eine Desktop-Verknüpfung startet OBS im Hintergrund, zeigt eine Auswahl (Bildschirm, offenes Fenster oder Spiel, Webcam) und streamt. Quelle live wechseln, Kamera an/aus, alles beenden im kleinen LIVE-Fenster.
+- **Launcher für Windows**: eine Desktop-Verknüpfung startet OBS im Hintergrund, zeigt eine Auswahl (Bildschirm, offenes Fenster oder Spiel, Webcam) und streamt. Quelle live wechseln, Kamera an/aus, Voice beitreten, alles beenden im kleinen LIVE-Fenster.
+- **Voice-Chat**: eigener Mumble-Server (Opus 96 kbit/s, geringe Verzögerung, RNNoise) mit dem Let's-Encrypt-Zertifikat der Website. Das Setup installiert und konfiguriert den Mumble-Client; ein Klick auf der Website, der Desktop-Verknüpfung oder im LIVE-Fenster tritt ohne Rückfragen bei. Wer im Voice ist (stumm, taub), zeigt die Website.
+- **Gruppen-Chat**: einfacher Text-Chat auf der Website, live per Server-Sent Events, mit Ungelesen-Zähler und anklickbaren Links.
 - **Kamera als eigener 720p-Stream**, damit Zuschauer sie unabhängig ein- und ausblenden können.
 - **Updates**: Der Launcher fragt bei jedem Start die aktuelle Client-Version beim Server ab, bietet Updates an und erzwingt sie, wenn der Server eine neuere Version verlangt.
 - **Sicher**: nur WebRTC, Stream-Key pro Nutzer, Viewer-Tokens, kein RTMP, der MediaMTX-Auth-Hook ist von außen nicht erreichbar.
@@ -137,7 +141,7 @@ in `web/server.js` erhöhen, wenn alte Clients nicht mehr funktionieren dürfen)
 
 ## Voraussetzungen
 
-- Server: Debian 12/13 oder Ubuntu 22.04+, eine Domain, die darauf zeigt, Ports 80/443 TCP und 8189 UDP.
+- Server: Debian 12/13 oder Ubuntu 22.04+, eine Domain, die darauf zeigt, Ports 80/443 TCP, 8189 UDP und 64738 TCP+UDP (Voice).
 - Streamer: Windows 10/11, OBS Studio 30+ (wird bei Bedarf installiert), beliebige GPU (das Setup wählt NVENC, AMF, QSV oder x264 automatisch), etwa 10 Mbit/s Upload.
 - Zuschauer: aktueller Browser; etwa 8 Mbit/s Download je angezeigtem Stream.
 
